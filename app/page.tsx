@@ -1,65 +1,269 @@
-import Image from "next/image";
+'use client';
+
+import { useState, useEffect, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
+import Header from '@/components/Header';
+import NewsList from '@/components/NewsList';
+import Pagination from '@/components/Pagination';
+import SearchBar from '@/components/SearchBar';
+import CategoryFilter from '@/components/CategoryFilter';
+import { translations } from '@/lib/i18n';
+import { useTheme } from '@/components/ThemeProvider';
+import { useLanguage } from '@/components/LanguageProvider';
+
+interface NewsData {
+  id: number;
+  title: string;
+  title_zh?: string | null;
+  title_ms?: string | null;
+  source_url: string;
+  source_name: string;
+  clicks: number;
+  comment_count: number;
+  created_at: string;
+}
+
+interface PaginationData {
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+  hasMore: boolean;
+}
+
+// Auto-refresh interval: 10 minutes
+const AUTO_REFRESH_INTERVAL = 10 * 60 * 1000;
 
 export default function Home() {
+  const router = useRouter();
+  const [news, setNews] = useState<NewsData[]>([]);
+  const [pagination, setPagination] = useState<PaginationData>({
+    page: 1, limit: 20, total: 0, totalPages: 0, hasMore: false
+  });
+  const [loading, setLoading] = useState(true);
+  const [lastUpdated, setLastUpdated] = useState<Date | undefined>();
+  const [searchQuery, setSearchQuery] = useState('');
+  const [isSearching, setIsSearching] = useState(false);
+  const [nextRefreshIn, setNextRefreshIn] = useState(10 * 60); // seconds
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [selectedCategory, setSelectedCategory] = useState('all');
+  const [categories, setCategories] = useState<readonly string[]>(['all']);
+  const { isDark } = useTheme();
+  const { lang, setLanguage } = useLanguage();
+  const t = translations[lang];
+
+  // Fetch news with pagination and category
+  const fetchNews = useCallback(async (page: number = 1, showLoading = false, category: string = 'all') => {
+    if (showLoading) setLoading(true);
+    try {
+      const response = await fetch(`/api/news?page=${page}&limit=20&category=${category}`);
+      if (!response.ok) {
+        throw new Error(`HTTP error: ${response.status}`);
+      }
+      const data = await response.json();
+      if (data.news) {
+        setNews(data.news);
+        setPagination(data.pagination);
+        setLastUpdated(new Date());
+        if (data.categories) {
+          setCategories(data.categories);
+        }
+      }
+    } catch {
+      // Silently fail for background fetches, only log on initial load
+      if (showLoading) {
+        console.error('Error fetching news');
+      }
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  // Initial load
+  useEffect(() => {
+    fetchNews(1, true, selectedCategory);
+  }, [fetchNews, selectedCategory]);
+
+  // Countdown timer for next refresh
+  useEffect(() => {
+    const countdownInterval = setInterval(() => {
+      setNextRefreshIn(prev => {
+        if (prev <= 1) return 10 * 60; // Reset to 10 minutes
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(countdownInterval);
+  }, []);
+
+  // Auto-refresh: Fetch new RSS feeds and update news list
+  useEffect(() => {
+    const interval = setInterval(async () => {
+      setIsRefreshing(true);
+      try {
+        // Fetch new news from RSS feeds (ignore errors - RSS feeds may be temporarily unavailable)
+        await fetch('/api/refresh', { method: 'POST' }).catch(() => {});
+        // Then update the news list
+        await fetchNews(pagination.page, false, selectedCategory);
+        setNextRefreshIn(10 * 60); // Reset countdown
+      } catch {
+        // Silently ignore auto-refresh errors to avoid console spam
+      } finally {
+        setIsRefreshing(false);
+      }
+    }, AUTO_REFRESH_INTERVAL);
+    return () => clearInterval(interval);
+  }, [fetchNews, pagination.page, selectedCategory]);
+
+  // Format countdown
+  const formatCountdown = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  // Page change
+  const handlePageChange = (page: number) => {
+    fetchNews(page, true, selectedCategory);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  // Category change
+  const handleCategoryChange = (category: string) => {
+    setSelectedCategory(category);
+    setIsSearching(false);
+    setSearchQuery('');
+  };
+
+  
+  // Click tracking
+  const handleItemClick = async (id: number) => {
+    // Optimistic update first
+    setNews(prevNews =>
+      prevNews.map(item =>
+        item.id === id ? { ...item, clicks: item.clicks + 1 } : item
+      )
+    );
+    // Fire and forget - don't wait for response
+    fetch(`/api/news/${id}/click`, { method: 'POST' }).catch(() => {});
+  };
+
+  // Navigate to discussion
+  const handleDiscussClick = (id: number) => {
+    router.push(`/news/${id}`);
+  };
+
+  // Search handlers
+  const handleSearch = async (query: string) => {
+    setSearchQuery(query);
+    setIsSearching(true);
+    setLoading(true);
+    try {
+      const response = await fetch(`/api/search?q=${encodeURIComponent(query)}&page=1&limit=20`);
+      if (!response.ok) {
+        throw new Error(`HTTP error: ${response.status}`);
+      }
+      const data = await response.json();
+      setNews(data.news || []);
+      setPagination(data.pagination);
+    } catch {
+      // Reset to empty state on error
+      setNews([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleClearSearch = () => {
+    setSearchQuery('');
+    setIsSearching(false);
+    fetchNews(1, true);
+  };
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+    <div className={`min-h-screen transition-colors ${isDark ? 'bg-gray-900' : 'bg-gradient-to-b from-emerald-50 to-white'}`}>
+      <Header
+        lang={lang}
+        onLanguageChange={setLanguage}
+        lastUpdated={lastUpdated}
+      />
+
+      <main className="max-w-6xl mx-auto px-2 sm:px-4 py-4 sm:py-6">
+        {/* Auto-Update Status Bar */}
+        <div className={`mb-4 p-3 rounded-xl shadow-sm flex flex-wrap items-center justify-between gap-2 ${isDark ? 'bg-gray-800' : 'bg-white'}`}>
+          <div className="flex items-center gap-3">
+            {/* Live indicator */}
+            <div className="flex items-center gap-2">
+              <span className={`relative flex h-3 w-3 ${isRefreshing ? '' : ''}`}>
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                <span className={`relative inline-flex rounded-full h-3 w-3 ${isRefreshing ? 'bg-yellow-500' : 'bg-emerald-500'}`}></span>
+              </span>
+              <span className={`text-sm font-medium ${isDark ? 'text-emerald-400' : 'text-emerald-600'}`}>
+                {isRefreshing ? 'Updating...' : 'LIVE'}
+              </span>
+            </div>
+
+            {/* Last updated */}
+            {lastUpdated && (
+              <span className={`text-xs ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
+                {t.lastUpdated}: {lastUpdated.toLocaleTimeString()}
+              </span>
+            )}
+          </div>
+
+          {/* Next refresh countdown */}
+          <div className={`flex items-center gap-2 text-xs ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
+            <span>⏱️</span>
+            <span>Next update in: <strong className={isDark ? 'text-emerald-400' : 'text-emerald-600'}>{formatCountdown(nextRefreshIn)}</strong></span>
+          </div>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
+
+        {/* Search Bar */}
+        <div className={`mb-4 p-4 rounded-xl shadow-sm ${isDark ? 'bg-gray-800' : 'bg-white'}`}>
+          <SearchBar lang={lang} onSearch={handleSearch} onClear={handleClearSearch} />
+          {isSearching && searchQuery && (
+            <p className={`mt-2 text-sm ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
+              {t.searchResults}: &quot;{searchQuery}&quot; ({pagination.total} {t.articles})
+            </p>
+          )}
+        </div>
+
+        {/* Category Filter */}
+        {!isSearching && (
+          <div className={`mb-4 p-4 rounded-xl shadow-sm ${isDark ? 'bg-gray-800' : 'bg-white'}`}>
+            <CategoryFilter
+              categories={categories}
+              selectedCategory={selectedCategory}
+              onCategoryChange={handleCategoryChange}
+              lang={lang}
             />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+          </div>
+        )}
+
+        <div className={`rounded-xl shadow-sm overflow-hidden ${isDark ? 'bg-gray-800' : 'bg-white'}`}>
+          <NewsList
+            news={news}
+            lang={lang}
+            loading={loading}
+            onItemClick={handleItemClick}
+            onDiscussClick={handleDiscussClick}
+          />
+          <Pagination
+            currentPage={pagination.page}
+            totalPages={pagination.totalPages}
+            onPageChange={handlePageChange}
+            lang={lang}
+          />
         </div>
       </main>
+
+      <footer className="max-w-6xl mx-auto px-4 py-6 sm:py-8 text-center">
+        <div className={`flex flex-col sm:flex-row items-center justify-center gap-2 text-xs sm:text-sm ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>
+          <span className="text-xl sm:text-2xl">🦅</span>
+          <span>Sarawak News Aggregator</span>
+          <span className={`hidden sm:inline ${isDark ? 'text-gray-600' : 'text-gray-300'}`}>|</span>
+          <span>Bumi Kenyalang</span>
+        </div>
+      </footer>
     </div>
   );
 }
