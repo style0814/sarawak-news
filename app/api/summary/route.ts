@@ -4,9 +4,14 @@ import { getNewsById, getNewsSummary, saveNewsSummary } from '@/lib/db';
 import { extractArticleContent, prepareForSummarization } from '@/lib/articleExtractor';
 import Groq from 'groq-sdk';
 
-const groq = new Groq({
-  apiKey: process.env.GROQ_API_KEY
-});
+// Lazy-initialize Groq client (avoid build-time errors when env is missing)
+let groq: Groq | null = null;
+function getGroq(): Groq {
+  if (!groq) {
+    groq = new Groq({ apiKey: process.env.GROQ_API_KEY || '' });
+  }
+  return groq;
+}
 
 // Generate AI summary for a news article
 export async function POST(request: NextRequest) {
@@ -107,7 +112,7 @@ Published: ${news.published_at || news.created_at}
 
 Note: Full article content could not be retrieved. Please create a summary based on the title and source information.`;
 
-    const completion = await groq.chat.completions.create({
+    const completion = await getGroq().chat.completions.create({
       model: 'llama-3.3-70b-versatile',
       messages: [
         {
