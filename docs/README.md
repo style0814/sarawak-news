@@ -1,9 +1,10 @@
 # Sarawak News - Documentation
 
-A Sarawak news aggregator with real-time ranking, multi-language support, community discussions, and comprehensive admin panel.
+A Sarawak news aggregator with real-time ranking, multi-language support, community discussions, premium features, and comprehensive admin panel.
 
 ## Features
 
+### All Features (FREE!)
 - **Sarawak-Themed UI** - Green/emerald colors inspired by Sarawak rainforests
 - **Auto-Refresh** - News updates every 10 minutes automatically
 - **Title Translation** - Automatic translation to Chinese and Malay
@@ -11,8 +12,6 @@ A Sarawak news aggregator with real-time ranking, multi-language support, commun
 - **Click-Based Ranking** - Popular articles rise to the top
 - **RSS Integration** - Database-driven feed management
 - **User Authentication** - Login/register with NextAuth.js
-- **Admin Panel** - 6-tab dashboard with analytics charts
-- **Error Monitoring** - Real-time error tracking with charts and notifications
 - **Search** - Advanced search with filters and autocomplete
 - **Bookmarks** - Save articles for later reading
 - **User Profile** - Edit profile, change password, view stats
@@ -20,11 +19,21 @@ A Sarawak news aggregator with real-time ranking, multi-language support, commun
 - **SEO Optimized** - Dynamic metadata, sitemap, robots.txt
 - **Dark Mode** - Toggle between light and dark themes
 - **Cross-Tab Sync** - Language and theme sync across browser tabs
+- **Audio TTS** - Listen to news titles (Text-to-Speech)
+- **AI News Summary** - AI-generated summaries powered by Groq
+- **Listen All News** - Sequential playback of all news summaries
+- **AI Feedback Page** - Collect user feedback on AI features
+
+### Admin Features
+- **Admin Panel** - 6-tab dashboard with analytics charts
+- **Error Monitoring** - Real-time error tracking with charts
+- **User Management** - Manage users
 
 ## Quick Start
 
 ```bash
 cd sarawak-news
+npm install
 npm run dev
 ```
 
@@ -36,11 +45,13 @@ Open http://localhost:3000
 |--------|-----|
 | Fetch news | Click **Refresh** button |
 | Read article | Click title (opens in new tab) |
-| Discuss | Click **Discuss →** or comment count |
-| Change language | Click flags EN / 中文 / BM |
+| Discuss | Click **Discuss** or comment count |
+| Change language | Click flags EN / ZH / BM |
 | Search | Use search bar with filters |
 | Bookmark | Click bookmark icon (requires login) |
 | Share | Use share buttons on articles |
+| Listen | Click play button on article detail |
+| Donate | Go to `/donate` to support us |
 | Edit profile | Go to `/profile` |
 | Admin panel | Go to `/admin` and login with admin credentials |
 
@@ -75,7 +86,12 @@ docs/
     ├── user-profile.md        # User profile page
     ├── bookmarks.md           # Article bookmarking
     ├── share-buttons.md       # Social sharing
-    └── seo.md                 # SEO optimization
+    ├── seo.md                 # SEO optimization
+    ├── ai-summary.md          # AI-powered summaries (Groq)
+    ├── audio-tts.md           # Text-to-Speech feature
+    ├── listen-all.md          # Listen All News player
+    ├── ai-feedback.md         # AI features feedback page
+    └── donate.md              # Donation page
 ```
 
 ## Learning Path
@@ -97,6 +113,9 @@ docs/
 |------|---------|
 | `app/page.tsx` | Main news list page |
 | `app/news/[id]/page.tsx` | News detail + comments |
+| `app/pricing/page.tsx` | Features page (all free) |
+| `app/donate/page.tsx` | Donation page |
+| `app/ai-features/page.tsx` | AI feedback page |
 | `app/profile/page.tsx` | User profile page |
 | `app/bookmarks/page.tsx` | User's saved articles |
 | `app/admin/dashboard/page.tsx` | Admin dashboard |
@@ -111,10 +130,15 @@ docs/
 | `lib/translate.ts` | Translation API |
 | `lib/i18n.ts` | Translations & helpers |
 | `lib/errorLogger.ts` | Error logging utility |
+| `hooks/useSpeechSynthesis.ts` | TTS custom hook |
 | `components/CommentSection.tsx` | Comment UI |
 | `components/ShareButtons.tsx` | Social sharing |
 | `components/SearchBar.tsx` | Search with autocomplete |
 | `components/NewsDetail.tsx` | News detail client component |
+| `components/ListenAllPlayer.tsx` | Listen All News player |
+| `lib/articleExtractor.ts` | Article content extraction |
+| `components/PremiumProvider.tsx` | Premium context |
+| `components/PremiumFeature.tsx` | Premium gate component |
 | `components/LanguageProvider.tsx` | Language state context |
 | `components/ThemeProvider.tsx` | Dark mode context |
 | `components/charts/ErrorCharts.tsx` | Error visualization |
@@ -146,6 +170,8 @@ docs/
 | GET | /api/bookmarks | Get bookmarks |
 | POST | /api/bookmarks | Add bookmark |
 | DELETE | /api/bookmarks | Remove bookmark |
+| POST | /api/summary | Generate AI summary |
+| POST | /api/feedback | Submit AI feedback |
 
 ### Auth
 
@@ -181,18 +207,21 @@ The UI uses a Sarawak-inspired color palette:
 - **White/Gray** - Cards and backgrounds
 
 ```
-Header: emerald-700 → teal-600 gradient
-Accent bar: yellow-400 → red-500 → yellow-400
-Buttons: emerald-500 → teal-600
+Header: emerald-700 -> teal-600 gradient
+Accent bar: yellow-400 -> red-500 -> yellow-400
+Buttons: emerald-500 -> teal-600
 Dark mode: gray-900 background
 ```
 
 ## Environment Variables
 
 ```env
-# Required
-NEXTAUTH_SECRET=your-secret
-NEXTAUTH_URL=http://localhost:3000
+# Required - Auth
+AUTH_SECRET=your-secret-key-32-chars
+AUTH_URL=http://localhost:3000
+
+# Required - AI Summary
+GROQ_API_KEY=your-groq-api-key
 
 # Admin
 ADMIN_USERNAME=superadmin
@@ -205,3 +234,14 @@ GOOGLE_TRANSLATE_API_KEY=your-key
 SENTRY_DSN=your-sentry-dsn
 NEXT_PUBLIC_SITE_URL=https://your-domain.com
 ```
+
+## Payment Methods
+
+| Method | Details |
+|--------|---------|
+| DuitNow | Any Malaysian bank app |
+| Sarawak Pay | SPayGlobal app |
+
+QR codes located in `public/payments/`:
+- `duitnow-qr.jpeg`
+- `sarawakpay-qr.jpeg`

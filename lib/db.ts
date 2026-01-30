@@ -174,6 +174,64 @@ function initializeDb(database: Database.Database) {
   try { database.exec(`ALTER TABLE comments ADD COLUMN flag_reason TEXT`); } catch { /* exists */ }
   try { database.exec(`ALTER TABLE comments ADD COLUMN flagged_at TEXT`); } catch { /* exists */ }
   try { database.exec(`ALTER TABLE comments ADD COLUMN moderation_note TEXT`); } catch { /* exists */ }
+
+  // Subscriptions table
+  database.exec(`
+    CREATE TABLE IF NOT EXISTS subscriptions (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER UNIQUE NOT NULL,
+      plan TEXT NOT NULL DEFAULT 'free',
+      status TEXT NOT NULL DEFAULT 'active',
+      started_at TEXT,
+      expires_at TEXT,
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    )
+  `);
+
+  // Payment submissions table (for manual verification)
+  database.exec(`
+    CREATE TABLE IF NOT EXISTS payment_submissions (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL,
+      amount REAL NOT NULL,
+      payment_method TEXT NOT NULL,
+      reference_number TEXT,
+      proof_description TEXT,
+      status TEXT NOT NULL DEFAULT 'pending',
+      admin_note TEXT,
+      reviewed_by INTEGER,
+      reviewed_at TEXT,
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+      FOREIGN KEY (reviewed_by) REFERENCES users(id) ON DELETE SET NULL
+    )
+  `);
+
+  // Add indexes for subscriptions
+  database.exec(`CREATE INDEX IF NOT EXISTS idx_subscriptions_user ON subscriptions(user_id)`);
+  database.exec(`CREATE INDEX IF NOT EXISTS idx_subscriptions_status ON subscriptions(status)`);
+  database.exec(`CREATE INDEX IF NOT EXISTS idx_payment_submissions_user ON payment_submissions(user_id)`);
+  database.exec(`CREATE INDEX IF NOT EXISTS idx_payment_submissions_status ON payment_submissions(status)`);
+
+  // News summary cache (for premium feature)
+  database.exec(`
+    CREATE TABLE IF NOT EXISTS news_summaries (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      news_id INTEGER UNIQUE NOT NULL,
+      summary_en TEXT,
+      summary_zh TEXT,
+      summary_ms TEXT,
+      audio_url_male TEXT,
+      audio_url_female TEXT,
+      image_url TEXT,
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (news_id) REFERENCES news(id) ON DELETE CASCADE
+    )
+  `);
+
+  database.exec(`CREATE INDEX IF NOT EXISTS idx_news_summaries_news ON news_summaries(news_id)`);
 }
 
 // ============ USER FUNCTIONS ============
@@ -1443,4 +1501,276 @@ export function getCommentModerationStats(): { totalComments: number; flaggedCom
   const flagged = (db.prepare('SELECT COUNT(*) as count FROM comments WHERE is_flagged = 1').get() as { count: number }).count;
   const hidden = (db.prepare('SELECT COUNT(*) as count FROM comments WHERE is_hidden = 1').get() as { count: number }).count;
   return { totalComments: total, flaggedComments: flagged, hiddenComments: hidden };
+}
+
+// ============ SUBSCRIPTION FUNCTIONS ============
+
+export interface Subscription {
+  id: number;
+  user_id: number;
+  plan: 'free' | 'premium';
+  status: 'active' | 'expired' | 'cancelled';
+  started_at: string | null;
+  expires_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PaymentSubmission {
+  id: number;
+  user_id: number;
+  amount: number;
+  payment_method: string;
+  reference_number: string | null;
+  proof_description: string | null;
+  status: 'pending' | 'approved' | 'rejected';
+  admin_note: string | null;
+  reviewed_by: number | null;
+  reviewed_at: string | null;
+  created_at: string;
+}
+
+export function getUserSubscription(userId: number): Subscription | null {
+  const db = getDb();
+  const subscription = db.prepare(`SELECT * FROM subscriptions WHERE user_id = ?`).get(userId) as Subscription | undefined;
+
+  if (!subscription) {
+    db.prepare(`INSERT INTO subscriptions (user_id, plan, status) VALUES (?, 'free', 'active')`).run(userId);
+    return db.prepare(`SELECT * FROM subscriptions WHERE user_id = ?`).get(userId) as Subscription;
+  }
+
+  if (subscription.plan === 'premium' && subscription.expires_at) {
+    const expiresAt = new Date(subscription.expires_at);
+    if (expiresAt < new Date()) {
+      db.prepare(`UPDATE subscriptions SET plan = 'free', status = 'expired', updated_at = CURRENT_TIMESTAMP WHERE user_id = ?`).run(userId);
+      return db.prepare(`SELECT * FROM subscriptions WHERE user_id = ?`).get(userId) as Subscription;
+    }
+  }
+
+  return subscription;
+}
+
+export function isPremiumUser(userId: number): boolean {
+  const subscription = getUserSubscription(userId);
+  return subscription?.plan === 'premium' && subscription?.status === 'active';
+}
+
+export function submitPayment(data: {
+  userId: number;
+  amount: number;
+  paymentMethod: string;
+  referenceNumber?: string;
+  proofDescription?: string;
+}): number | null {
+  const db = getDb();
+  try {
+    const result = db.prepare(`
+      INSERT INTO payment_submissions (user_id, amount, payment_method, reference_number, proof_description)
+      VALUES (?, ?, ?, ?, ?)
+    `).run(data.userId, data.amount, data.paymentMethod, data.referenceNumber || null, data.proofDescription || null);
+    return result.lastInsertRowid as number;
+  } catch {
+    return null;
+  }
+}
+
+export function getUserPayments(userId: number): PaymentSubmission[] {
+  const db = getDb();
+  return db.prepare(`SELECT * FROM payment_submissions WHERE user_id = ? ORDER BY created_at DESC`).all(userId) as PaymentSubmission[];
+}
+
+export function getPendingPayments(): (PaymentSubmission & { username: string; email: string })[] {
+  const db = getDb();
+  return db.prepare(`
+    SELECT ps.*, u.username, u.email
+    FROM payment_submissions ps
+    JOIN users u ON ps.user_id = u.id
+    WHERE ps.status = 'pending'
+    ORDER BY ps.created_at ASC
+  `).all() as (PaymentSubmission & { username: string; email: string })[];
+}
+
+export function getAllPayments(page: number = 1, limit: number = 20, status?: string): {
+  payments: (PaymentSubmission & { username: string; email: string })[];
+  total: number;
+  totalPages: number;
+} {
+  const db = getDb();
+  const offset = (page - 1) * limit;
+  const whereClause = status && status !== 'all' ? `WHERE ps.status = '${status}'` : '';
+  const total = (db.prepare(`SELECT COUNT(*) as count FROM payment_submissions ps ${whereClause}`).get() as { count: number }).count;
+  const payments = db.prepare(`
+    SELECT ps.*, u.username, u.email
+    FROM payment_submissions ps
+    JOIN users u ON ps.user_id = u.id
+    ${whereClause}
+    ORDER BY ps.created_at DESC
+    LIMIT ? OFFSET ?
+  `).all(limit, offset) as (PaymentSubmission & { username: string; email: string })[];
+  return { payments, total, totalPages: Math.ceil(total / limit) };
+}
+
+export function approvePayment(paymentId: number, adminId: number, months: number = 1): boolean {
+  const db = getDb();
+  const payment = db.prepare('SELECT * FROM payment_submissions WHERE id = ?').get(paymentId) as PaymentSubmission | undefined;
+  if (!payment || payment.status !== 'pending') return false;
+
+  const expiresAt = new Date();
+  expiresAt.setMonth(expiresAt.getMonth() + months);
+
+  const currentSub = getUserSubscription(payment.user_id);
+  let newExpiresAt = expiresAt;
+
+  if (currentSub?.plan === 'premium' && currentSub.expires_at) {
+    const currentExpiry = new Date(currentSub.expires_at);
+    if (currentExpiry > new Date()) {
+      newExpiresAt = new Date(currentExpiry);
+      newExpiresAt.setMonth(newExpiresAt.getMonth() + months);
+    }
+  }
+
+  db.prepare(`UPDATE payment_submissions SET status = 'approved', reviewed_by = ?, reviewed_at = CURRENT_TIMESTAMP WHERE id = ?`).run(adminId, paymentId);
+
+  db.prepare(`
+    INSERT INTO subscriptions (user_id, plan, status, started_at, expires_at, updated_at)
+    VALUES (?, 'premium', 'active', CURRENT_TIMESTAMP, ?, CURRENT_TIMESTAMP)
+    ON CONFLICT(user_id) DO UPDATE SET
+      plan = 'premium', status = 'active',
+      started_at = COALESCE(subscriptions.started_at, CURRENT_TIMESTAMP),
+      expires_at = ?, updated_at = CURRENT_TIMESTAMP
+  `).run(payment.user_id, newExpiresAt.toISOString(), newExpiresAt.toISOString());
+
+  return true;
+}
+
+export function rejectPayment(paymentId: number, adminId: number, note?: string): boolean {
+  const db = getDb();
+  const result = db.prepare(`
+    UPDATE payment_submissions SET status = 'rejected', admin_note = ?, reviewed_by = ?, reviewed_at = CURRENT_TIMESTAMP
+    WHERE id = ? AND status = 'pending'
+  `).run(note || null, adminId, paymentId);
+  return result.changes > 0;
+}
+
+export function getSubscriptionStats(): { totalPremium: number; totalFree: number; pendingPayments: number; revenueThisMonth: number } {
+  const db = getDb();
+  const totalPremium = (db.prepare("SELECT COUNT(*) as count FROM subscriptions WHERE plan = 'premium' AND status = 'active'").get() as { count: number }).count;
+  const totalFree = (db.prepare("SELECT COUNT(*) as count FROM subscriptions WHERE plan = 'free'").get() as { count: number }).count;
+  const pendingPayments = (db.prepare("SELECT COUNT(*) as count FROM payment_submissions WHERE status = 'pending'").get() as { count: number }).count;
+  const startOfMonth = new Date();
+  startOfMonth.setDate(1);
+  startOfMonth.setHours(0, 0, 0, 0);
+  const revenue = db.prepare(`SELECT COALESCE(SUM(amount), 0) as total FROM payment_submissions WHERE status = 'approved' AND reviewed_at >= ?`).get(startOfMonth.toISOString()) as { total: number };
+  return { totalPremium, totalFree, pendingPayments, revenueThisMonth: revenue.total };
+}
+
+// ============ NEWS SUMMARY FUNCTIONS (Premium Feature) ============
+
+export interface NewsSummary {
+  id: number;
+  news_id: number;
+  summary_en: string | null;
+  summary_zh: string | null;
+  summary_ms: string | null;
+  audio_url_male: string | null;
+  audio_url_female: string | null;
+  image_url: string | null;
+  created_at: string;
+}
+
+export function getNewsSummary(newsId: number): NewsSummary | null {
+  const db = getDb();
+  return db.prepare('SELECT * FROM news_summaries WHERE news_id = ?').get(newsId) as NewsSummary | null;
+}
+
+// ============ USER FEEDBACK FUNCTIONS ============
+
+export interface UserFeedback {
+  id: number;
+  user_id: number;
+  type: string;
+  summary_rating: string | null;
+  voice_rating: string | null;
+  wants_premium: number | null;
+  additional_feedback: string | null;
+  created_at: string;
+}
+
+export function saveFeedback(data: {
+  userId: number;
+  type: string;
+  summaryRating?: string;
+  voiceRating?: string;
+  wantsPremium?: boolean;
+  additionalFeedback?: string;
+}): boolean {
+  const db = getDb();
+
+  // Create feedback table if not exists
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS user_feedback (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL,
+      type TEXT NOT NULL,
+      summary_rating TEXT,
+      voice_rating TEXT,
+      wants_premium INTEGER,
+      additional_feedback TEXT,
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    )
+  `);
+
+  try {
+    db.prepare(`
+      INSERT INTO user_feedback (user_id, type, summary_rating, voice_rating, wants_premium, additional_feedback)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `).run(
+      data.userId,
+      data.type,
+      data.summaryRating || null,
+      data.voiceRating || null,
+      data.wantsPremium !== undefined ? (data.wantsPremium ? 1 : 0) : null,
+      data.additionalFeedback || null
+    );
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export function getAllFeedback(): (UserFeedback & { username: string })[] {
+  const db = getDb();
+  return db.prepare(`
+    SELECT f.*, u.username
+    FROM user_feedback f
+    JOIN users u ON f.user_id = u.id
+    ORDER BY f.created_at DESC
+  `).all() as (UserFeedback & { username: string })[];
+}
+
+export function saveNewsSummary(newsId: number, data: Partial<Omit<NewsSummary, 'id' | 'news_id' | 'created_at'>>): boolean {
+  const db = getDb();
+  try {
+    db.prepare(`
+      INSERT INTO news_summaries (news_id, summary_en, summary_zh, summary_ms, audio_url_male, audio_url_female, image_url)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT(news_id) DO UPDATE SET
+        summary_en = COALESCE(?, news_summaries.summary_en),
+        summary_zh = COALESCE(?, news_summaries.summary_zh),
+        summary_ms = COALESCE(?, news_summaries.summary_ms),
+        audio_url_male = COALESCE(?, news_summaries.audio_url_male),
+        audio_url_female = COALESCE(?, news_summaries.audio_url_female),
+        image_url = COALESCE(?, news_summaries.image_url)
+    `).run(
+      newsId,
+      data.summary_en || null, data.summary_zh || null, data.summary_ms || null,
+      data.audio_url_male || null, data.audio_url_female || null, data.image_url || null,
+      data.summary_en || null, data.summary_zh || null, data.summary_ms || null,
+      data.audio_url_male || null, data.audio_url_female || null, data.image_url || null
+    );
+    return true;
+  } catch {
+    return false;
+  }
 }

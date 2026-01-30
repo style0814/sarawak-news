@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { checkAdminSession } from '@/lib/adminAuth';
+import { checkAdminSession, getAdminSession } from '@/lib/adminAuth';
 import {
   getStats,
   getAllUsersWithAdmin,
@@ -34,6 +34,10 @@ import {
   unhideComment,
   deleteComment,
   getCommentModerationStats,
+  getAllPayments,
+  getSubscriptionStats,
+  approvePayment,
+  rejectPayment,
   ErrorLevel,
   ErrorType
 } from '@/lib/db';
@@ -133,6 +137,20 @@ export async function GET(request: NextRequest) {
   if (tab === 'feeds') {
     const feeds = getAllRssFeeds();
     return NextResponse.json({ feeds });
+  }
+
+  // Payments tab
+  if (tab === 'payments') {
+    const page = parseInt(searchParams.get('page') || '1', 10);
+    const status = searchParams.get('status') || 'pending';
+
+    const result = getAllPayments(page, 20, status === 'all' ? undefined : status);
+    const stats = getSubscriptionStats();
+
+    return NextResponse.json({
+      ...result,
+      stats
+    });
   }
 
   return NextResponse.json({ error: 'Invalid tab' }, { status: 400 });
@@ -306,6 +324,38 @@ export async function POST(request: NextRequest) {
       }
       const success = deleteRssFeed(feedId);
       return NextResponse.json({ success });
+    }
+
+    // ============ Payment Actions ============
+
+    // Approve payment
+    if (action === 'approvePayment') {
+      const { paymentId, months } = body;
+      if (!paymentId) {
+        return NextResponse.json({ error: 'Payment ID is required' }, { status: 400 });
+      }
+      const adminSession = await getAdminSession();
+      const adminId = adminSession?.userId || 1;
+      const success = approvePayment(paymentId, adminId, months || 1);
+      if (!success) {
+        return NextResponse.json({ error: 'Failed to approve payment' }, { status: 500 });
+      }
+      return NextResponse.json({ success: true });
+    }
+
+    // Reject payment
+    if (action === 'rejectPayment') {
+      const { paymentId, note } = body;
+      if (!paymentId) {
+        return NextResponse.json({ error: 'Payment ID is required' }, { status: 400 });
+      }
+      const adminSession = await getAdminSession();
+      const adminId = adminSession?.userId || 1;
+      const success = rejectPayment(paymentId, adminId, note);
+      if (!success) {
+        return NextResponse.json({ error: 'Failed to reject payment' }, { status: 500 });
+      }
+      return NextResponse.json({ success: true });
     }
 
     return NextResponse.json({ error: 'Invalid action' }, { status: 400 });

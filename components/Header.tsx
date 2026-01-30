@@ -52,6 +52,24 @@ export default function Header({ lang, onLanguageChange, lastUpdated }: HeaderPr
             {/* Dark Mode Toggle */}
             <DarkModeToggle />
 
+            {/* AI Features Link */}
+            <Link
+              href="/ai-features"
+              className="px-2 sm:px-3 py-1 sm:py-1.5 text-xs sm:text-sm bg-purple-500/80 hover:bg-purple-400 text-white font-medium rounded-full transition-colors shadow-sm flex items-center gap-1"
+            >
+              <span>🤖</span>
+              <span className="hidden sm:inline">AI Beta</span>
+            </Link>
+
+            {/* Donate Link */}
+            <Link
+              href="/donate"
+              className="px-2 sm:px-3 py-1 sm:py-1.5 text-xs sm:text-sm bg-pink-500 hover:bg-pink-400 text-white font-semibold rounded-full transition-colors shadow-sm flex items-center gap-1"
+            >
+              <span>☕</span>
+              <span className="hidden sm:inline">{t.donate || 'Donate'}</span>
+            </Link>
+
             {/* Auth */}
             {session ? (
               <div className="flex items-center gap-2">

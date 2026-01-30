@@ -7,6 +7,8 @@ import NewsList from '@/components/NewsList';
 import Pagination from '@/components/Pagination';
 import SearchBar from '@/components/SearchBar';
 import CategoryFilter from '@/components/CategoryFilter';
+import ListenAllPlayer from '@/components/ListenAllPlayer';
+import AdBanner from '@/components/AdBanner';
 import { translations } from '@/lib/i18n';
 import { useTheme } from '@/components/ThemeProvider';
 import { useLanguage } from '@/components/LanguageProvider';
@@ -256,6 +258,13 @@ export default function Home() {
         </div>
       </main>
 
+      {/* Ad Banner */}
+      <AdBanner
+        slot={process.env.NEXT_PUBLIC_ADSENSE_SLOT_BOTTOM || ''}
+        format="horizontal"
+        responsive={true}
+      />
+
       <footer className="max-w-6xl mx-auto px-4 py-6 sm:py-8 text-center">
         <div className={`flex flex-col sm:flex-row items-center justify-center gap-2 text-xs sm:text-sm ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>
           <span className="text-xl sm:text-2xl">🦅</span>
@@ -264,6 +273,9 @@ export default function Home() {
           <span>Bumi Kenyalang</span>
         </div>
       </footer>
+
+      {/* Listen All News Player */}
+      <ListenAllPlayer news={news} lang={lang} />
     </div>
   );
 }

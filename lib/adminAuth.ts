@@ -89,3 +89,16 @@ export async function clearAdminSession(): Promise<void> {
 export function getAdminUsername(): string {
   return ADMIN_USERNAME;
 }
+
+// Get admin session info
+export async function getAdminSession(): Promise<{ userId: number; username: string } | null> {
+  const isAuthenticated = await checkAdminSession();
+  if (!isAuthenticated) {
+    return null;
+  }
+  // For simplified admin system, return userId 1 for the superadmin
+  return {
+    userId: 1,
+    username: ADMIN_USERNAME
+  };
+}

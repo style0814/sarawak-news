@@ -37,6 +37,12 @@ sarawak-news/
 │   ├── comments/           # User comment history
 │   │   └── page.tsx        # View all user's comments
 │   │
+│   ├── pricing/            # Premium pricing
+│   │   └── page.tsx        # Pricing comparison page
+│   │
+│   ├── subscribe/          # Payment submission
+│   │   └── page.tsx        # QR code payment page
+│   │
 │   └── api/                # Backend API routes
 │       ├── news/
 │       │   ├── route.ts    # GET /api/news (with filters)
@@ -71,6 +77,12 @@ sarawak-news/
 │       │   │   └── route.ts # GET/PUT /api/user/profile
 │       │   └── comments/
 │       │       └── route.ts # GET /api/user/comments
+│       ├── payment/
+│       │   └── route.ts    # GET/POST /api/payment
+│       ├── subscription/
+│       │   └── route.ts    # GET /api/subscription
+│       ├── summary/
+│       │   └── route.ts    # POST /api/summary (AI summary)
 │       └── admin/
 │           ├── route.ts    # GET/POST /api/admin
 │           ├── auth/
@@ -93,9 +105,14 @@ sarawak-news/
 │   ├── Providers.tsx       # React Query + Session providers
 │   ├── ThemeProvider.tsx   # Dark/light theme context
 │   ├── DarkModeToggle.tsx  # Theme toggle button
+│   ├── PremiumProvider.tsx # Premium subscription context
+│   ├── PremiumFeature.tsx  # Premium feature gate component
 │   └── charts/
 │       ├── ErrorCharts.tsx     # Error monitoring charts
 │       └── DashboardCharts.tsx # Analytics charts
+│
+├── hooks/                  # Custom React hooks
+│   └── useSpeechSynthesis.ts  # Text-to-Speech hook
 │
 ├── lib/                    # Utility functions & business logic
 │   ├── db.ts               # SQLite database operations
@@ -112,6 +129,9 @@ sarawak-news/
 ├── docs/                   # Documentation (you're here!)
 │
 ├── public/                 # Static files (images, favicon)
+│   └── payments/           # Payment QR codes
+│       ├── duitnow-qr.jpeg
+│       └── sarawakpay-qr.jpeg
 │
 ├── sentry.client.config.ts # Sentry browser config
 ├── sentry.server.config.ts # Sentry server config
@@ -211,6 +231,10 @@ data/
 - `bookmarks` - User saved articles
 - `error_logs` - Error tracking
 - `rss_feeds` - Configurable RSS sources
+- `subscriptions` - Premium subscription status
+- `payment_submissions` - Payment verification queue
+- `news_summaries` - Cached AI summaries
+- `user_preferences` - Language and theme preferences
 
 **Note:** This folder should be in `.gitignore` for production (each deployment has its own data).
 
@@ -300,6 +324,9 @@ NEXTAUTH_URL=http://localhost:3000
 ADMIN_USERNAME=superadmin
 ADMIN_PASSWORD_HASH=bcrypt-hash
 ADMIN_SESSION_SECRET=random-string
+
+# AI Summary (required for premium)
+GROQ_API_KEY=your-groq-api-key
 
 # Translation (optional)
 GOOGLE_TRANSLATE_API_KEY=your-key

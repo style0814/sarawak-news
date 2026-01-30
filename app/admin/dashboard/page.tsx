@@ -125,7 +125,29 @@ interface RssFeed {
   created_at: string;
 }
 
-type Tab = 'dashboard' | 'users' | 'news' | 'comments' | 'errors' | 'feeds';
+type Tab = 'dashboard' | 'users' | 'news' | 'comments' | 'errors' | 'feeds' | 'payments';
+
+interface PaymentSubmission {
+  id: number;
+  user_id: number;
+  username: string;
+  email: string;
+  amount: number;
+  payment_method: string;
+  reference_number: string;
+  description: string | null;
+  status: 'pending' | 'approved' | 'rejected';
+  admin_note: string | null;
+  created_at: string;
+  reviewed_at: string | null;
+}
+
+interface SubscriptionStats {
+  totalPremium: number;
+  totalFree: number;
+  pendingPayments: number;
+  revenueThisMonth: number;
+}
 
 export default function AdminDashboard() {
   const router = useRouter();
@@ -194,6 +216,14 @@ export default function AdminDashboard() {
   const [newFeedUrl, setNewFeedUrl] = useState('');
   const [newFeedIsSarawak, setNewFeedIsSarawak] = useState(false);
   const [feedError, setFeedError] = useState<string | null>(null);
+
+  // Payments state
+  const [payments, setPayments] = useState<PaymentSubmission[]>([]);
+  const [paymentsPage, setPaymentsPage] = useState(1);
+  const [paymentsTotalPages, setPaymentsTotalPages] = useState(1);
+  const [paymentFilter, setPaymentFilter] = useState<'all' | 'pending' | 'approved' | 'rejected'>('pending');
+  const [subscriptionStats, setSubscriptionStats] = useState<SubscriptionStats | null>(null);
+  const [pendingPaymentsCount, setPendingPaymentsCount] = useState(0);
 
   const t = translations[lang];
 
@@ -325,6 +355,25 @@ export default function AdminDashboard() {
       setFeeds(data.feeds || []);
     } catch {
       console.error('Failed to load feeds');
+    }
+  }, []);
+
+  const fetchPayments = useCallback(async (page: number = 1, status: string = 'pending') => {
+    try {
+      const params = new URLSearchParams({
+        tab: 'payments',
+        page: String(page),
+        status
+      });
+      const response = await fetch(`/api/admin?${params}`);
+      if (!response.ok) throw new Error('Failed to fetch');
+      const data = await response.json();
+      setPayments(data.payments || []);
+      setPaymentsTotalPages(data.totalPages || 1);
+      setSubscriptionStats(data.stats || null);
+      setPendingPaymentsCount(data.stats?.pendingPayments || 0);
+    } catch {
+      console.error('Failed to load payments');
     }
   }, []);
 
@@ -467,8 +516,9 @@ export default function AdminDashboard() {
       else if (activeTab === 'comments') fetchComments(commentsPage, commentFilter);
       else if (activeTab === 'errors') fetchErrors(errorsPage);
       else if (activeTab === 'feeds') fetchFeeds();
+      else if (activeTab === 'payments') fetchPayments(paymentsPage, paymentFilter);
     }
-  }, [authChecked, activeTab, fetchDashboard, fetchUsers, fetchNews, fetchComments, fetchErrors, fetchFeeds, newsPage, commentsPage, commentFilter, errorsPage]);
+  }, [authChecked, activeTab, fetchDashboard, fetchUsers, fetchNews, fetchComments, fetchErrors, fetchFeeds, fetchPayments, newsPage, commentsPage, commentFilter, errorsPage, paymentsPage, paymentFilter]);
 
   // Poll for new errors every 30 seconds when on errors tab
   useEffect(() => {
@@ -693,6 +743,53 @@ export default function AdminDashboard() {
     fetchErrors(1);
   };
 
+  // Payment handlers
+  const handleApprovePayment = async (paymentId: number) => {
+    const months = prompt('How many months to activate? (default: 1)', '1');
+    if (!months) return;
+
+    try {
+      const response = await fetch('/api/admin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'approvePayment', paymentId, months: parseInt(months) })
+      });
+      if (response.ok) {
+        fetchPayments(paymentsPage, paymentFilter);
+      } else {
+        const data = await response.json();
+        alert(data.error || 'Failed to approve payment');
+      }
+    } catch {
+      alert('Failed to approve payment');
+    }
+  };
+
+  const handleRejectPayment = async (paymentId: number) => {
+    const note = prompt('Reason for rejection (optional):');
+
+    try {
+      const response = await fetch('/api/admin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'rejectPayment', paymentId, note })
+      });
+      if (response.ok) {
+        fetchPayments(paymentsPage, paymentFilter);
+      } else {
+        const data = await response.json();
+        alert(data.error || 'Failed to reject payment');
+      }
+    } catch {
+      alert('Failed to reject payment');
+    }
+  };
+
+  const handlePaymentFilterChange = (filter: 'all' | 'pending' | 'approved' | 'rejected') => {
+    setPaymentFilter(filter);
+    setPaymentsPage(1);
+  };
+
   if (!authChecked) {
     return (
       <div className="min-h-screen bg-gray-900 flex items-center justify-center">
@@ -706,6 +803,7 @@ export default function AdminDashboard() {
     { key: 'users', label: t.users },
     { key: 'news', label: t.news },
     { key: 'comments', label: t.comments },
+    { key: 'payments', label: t.payments || 'Payments', badge: pendingPaymentsCount > 0 ? pendingPaymentsCount : undefined },
     { key: 'errors', label: 'Errors', badge: unresolvedCount > 0 ? unresolvedCount : undefined },
     { key: 'feeds', label: t.rssFeeds || 'RSS Feeds' }
   ];
@@ -1728,6 +1826,193 @@ export default function AdminDashboard() {
                     </div>
                   ))}
                 </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Payments Tab */}
+        {activeTab === 'payments' && (
+          <div className="space-y-6">
+            {/* Subscription Stats */}
+            {subscriptionStats && (
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div className="p-4 rounded-xl bg-gray-800 border border-gray-700">
+                  <h3 className="text-sm text-gray-400">{t.premiumUsers || 'Premium Users'}</h3>
+                  <p className="text-2xl font-bold text-emerald-400">{subscriptionStats.totalPremium}</p>
+                </div>
+                <div className="p-4 rounded-xl bg-gray-800 border border-gray-700">
+                  <h3 className="text-sm text-gray-400">{t.freeUsers || 'Free Users'}</h3>
+                  <p className="text-2xl font-bold text-gray-400">{subscriptionStats.totalFree}</p>
+                </div>
+                <div className="p-4 rounded-xl bg-gray-800 border border-yellow-700/50">
+                  <h3 className="text-sm text-gray-400">{t.pendingPayments || 'Pending Payments'}</h3>
+                  <p className="text-2xl font-bold text-yellow-400">{subscriptionStats.pendingPayments}</p>
+                </div>
+                <div className="p-4 rounded-xl bg-gray-800 border border-emerald-700/50">
+                  <h3 className="text-sm text-gray-400">{t.revenueThisMonth || 'Revenue (This Month)'}</h3>
+                  <p className="text-2xl font-bold text-emerald-400">RM {subscriptionStats.revenueThisMonth.toFixed(2)}</p>
+                </div>
+              </div>
+            )}
+
+            {/* Filter Tabs */}
+            <div className="p-4 rounded-xl bg-gray-800 border border-gray-700 flex flex-wrap items-center gap-4">
+              <span className="text-sm text-gray-400">{t.filterByStatus || 'Filter by status'}:</span>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => handlePaymentFilterChange('pending')}
+                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    paymentFilter === 'pending'
+                      ? 'bg-yellow-600 text-white'
+                      : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                  }`}
+                >
+                  {t.pending || 'Pending'}
+                </button>
+                <button
+                  onClick={() => handlePaymentFilterChange('approved')}
+                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    paymentFilter === 'approved'
+                      ? 'bg-emerald-600 text-white'
+                      : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                  }`}
+                >
+                  {t.approved || 'Approved'}
+                </button>
+                <button
+                  onClick={() => handlePaymentFilterChange('rejected')}
+                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    paymentFilter === 'rejected'
+                      ? 'bg-red-600 text-white'
+                      : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                  }`}
+                >
+                  {t.rejected || 'Rejected'}
+                </button>
+                <button
+                  onClick={() => handlePaymentFilterChange('all')}
+                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    paymentFilter === 'all'
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                  }`}
+                >
+                  {t.all}
+                </button>
+              </div>
+            </div>
+
+            {/* Payments Table */}
+            <div className="p-6 rounded-xl bg-gray-800 border border-gray-700">
+              <h2 className="text-lg font-bold mb-4">{t.paymentSubmissions || 'Payment Submissions'}</h2>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-gray-700">
+                      <th className="text-left py-2 text-gray-400">ID</th>
+                      <th className="text-left py-2 text-gray-400">{t.status || 'Status'}</th>
+                      <th className="text-left py-2 text-gray-400">{t.user || 'User'}</th>
+                      <th className="text-left py-2 text-gray-400">{t.amount || 'Amount'}</th>
+                      <th className="text-left py-2 text-gray-400">{t.method || 'Method'}</th>
+                      <th className="text-left py-2 text-gray-400">{t.reference || 'Reference'}</th>
+                      <th className="text-left py-2 text-gray-400">{t.date || 'Date'}</th>
+                      <th className="text-left py-2 text-gray-400">{t.actions}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {payments.map(payment => (
+                      <tr key={payment.id} className="border-b border-gray-700/50">
+                        <td className="py-3">{payment.id}</td>
+                        <td className="py-3">
+                          <span className={`px-2 py-1 rounded text-xs font-medium ${
+                            payment.status === 'pending' ? 'bg-yellow-500/20 text-yellow-400' :
+                            payment.status === 'approved' ? 'bg-green-500/20 text-green-400' :
+                            'bg-red-500/20 text-red-400'
+                          }`}>
+                            {payment.status}
+                          </span>
+                        </td>
+                        <td className="py-3">
+                          <div className="font-medium">{payment.username}</div>
+                          <div className="text-xs text-gray-500">{payment.email}</div>
+                        </td>
+                        <td className="py-3 text-emerald-400 font-medium">RM {payment.amount.toFixed(2)}</td>
+                        <td className="py-3">
+                          <span className={`px-2 py-1 rounded text-xs ${
+                            payment.payment_method === 'duitnow' ? 'bg-pink-500/20 text-pink-400' :
+                            'bg-blue-500/20 text-blue-400'
+                          }`}>
+                            {payment.payment_method === 'duitnow' ? 'DuitNow' : 'Sarawak Pay'}
+                          </span>
+                        </td>
+                        <td className="py-3">
+                          <div className="font-mono text-sm">{payment.reference_number}</div>
+                          {payment.description && (
+                            <div className="text-xs text-gray-500 mt-1">{payment.description}</div>
+                          )}
+                        </td>
+                        <td className="py-3 text-gray-500 text-xs">
+                          {new Date(payment.created_at).toLocaleString()}
+                        </td>
+                        <td className="py-3">
+                          {payment.status === 'pending' ? (
+                            <div className="flex flex-col gap-1">
+                              <button
+                                onClick={() => handleApprovePayment(payment.id)}
+                                className="text-green-400 hover:text-green-300 text-xs"
+                              >
+                                {t.approve || 'Approve'}
+                              </button>
+                              <button
+                                onClick={() => handleRejectPayment(payment.id)}
+                                className="text-red-400 hover:text-red-300 text-xs"
+                              >
+                                {t.reject || 'Reject'}
+                              </button>
+                            </div>
+                          ) : (
+                            <div className="text-xs text-gray-500">
+                              {payment.reviewed_at && (
+                                <div>{new Date(payment.reviewed_at).toLocaleDateString()}</div>
+                              )}
+                              {payment.admin_note && (
+                                <div className="text-yellow-400">{payment.admin_note}</div>
+                              )}
+                            </div>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Pagination */}
+              {paymentsTotalPages > 1 && (
+                <div className="flex justify-center gap-2 mt-4">
+                  <button
+                    onClick={() => setPaymentsPage(p => Math.max(1, p - 1))}
+                    disabled={paymentsPage === 1}
+                    className="px-3 py-1 rounded bg-gray-700 text-sm disabled:opacity-50 hover:bg-gray-600"
+                  >
+                    {t.previous}
+                  </button>
+                  <span className="px-3 py-1 text-sm text-gray-400">
+                    {t.page} {paymentsPage} {t.of} {paymentsTotalPages}
+                  </span>
+                  <button
+                    onClick={() => setPaymentsPage(p => Math.min(paymentsTotalPages, p + 1))}
+                    disabled={paymentsPage === paymentsTotalPages}
+                    className="px-3 py-1 rounded bg-gray-700 text-sm disabled:opacity-50 hover:bg-gray-600"
+                  >
+                    {t.next}
+                  </button>
+                </div>
+              )}
+
+              {payments.length === 0 && (
+                <p className="text-center py-4 text-gray-500">{t.noPayments || 'No payments found'}</p>
               )}
             </div>
           </div>

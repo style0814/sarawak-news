@@ -4,6 +4,7 @@ import { SessionProvider } from 'next-auth/react';
 import { ReactNode } from 'react';
 import { ThemeProvider } from './ThemeProvider';
 import { LanguageProvider } from './LanguageProvider';
+import { PremiumProvider } from './PremiumProvider';
 
 export default function Providers({ children }: { children: ReactNode }) {
   return (
@@ -13,7 +14,9 @@ export default function Providers({ children }: { children: ReactNode }) {
     >
       <ThemeProvider>
         <LanguageProvider>
-          {children}
+          <PremiumProvider>
+            {children}
+          </PremiumProvider>
         </LanguageProvider>
       </ThemeProvider>
     </SessionProvider>
