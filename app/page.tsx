@@ -81,9 +81,28 @@ export default function Home() {
     }
   }, []);
 
-  // Initial load
+  // Initial load - fetch RSS if database is empty, then load news
   useEffect(() => {
-    fetchNews(1, true, selectedCategory);
+    const init = async () => {
+      setLoading(true);
+      // Fetch news first
+      const res = await fetch(`/api/news?page=1&limit=20&category=${selectedCategory}`);
+      const data = await res.json();
+
+      if (!data.news || data.news.length === 0) {
+        // Database is empty - fetch RSS feeds first
+        await fetch('/api/refresh', { method: 'POST' }).catch(() => {});
+        // Then load news again
+        await fetchNews(1, false, selectedCategory);
+      } else {
+        setNews(data.news);
+        setPagination(data.pagination);
+        setLastUpdated(new Date());
+        if (data.categories) setCategories(data.categories);
+      }
+      setLoading(false);
+    };
+    init();
   }, [fetchNews, selectedCategory]);
 
   // Countdown timer for next refresh
