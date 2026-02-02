@@ -4,7 +4,7 @@ import { getAllNews } from '@/lib/db';
 export default function sitemap(): MetadataRoute.Sitemap {
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://sarawaknews.my';
 
-  // Static pages
+  // Static pages (only publicly accessible, indexable pages)
   const staticPages: MetadataRoute.Sitemap = [
     {
       url: siteUrl,
@@ -13,28 +13,10 @@ export default function sitemap(): MetadataRoute.Sitemap {
       priority: 1,
     },
     {
-      url: `${siteUrl}/auth/login`,
-      lastModified: new Date(),
-      changeFrequency: 'monthly',
-      priority: 0.3,
-    },
-    {
-      url: `${siteUrl}/auth/register`,
-      lastModified: new Date(),
-      changeFrequency: 'monthly',
-      priority: 0.3,
-    },
-    {
-      url: `${siteUrl}/bookmarks`,
-      lastModified: new Date(),
-      changeFrequency: 'daily',
-      priority: 0.5,
-    },
-    {
-      url: `${siteUrl}/profile`,
+      url: `${siteUrl}/ai-features`,
       lastModified: new Date(),
       changeFrequency: 'weekly',
-      priority: 0.4,
+      priority: 0.5,
     },
   ];
 
@@ -43,7 +25,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
 
   const newsPages: MetadataRoute.Sitemap = news.map((item) => ({
     url: `${siteUrl}/news/${item.id}`,
-    lastModified: new Date(item.created_at),
+    lastModified: new Date(item.published_at || item.created_at),
     changeFrequency: 'weekly' as const,
     priority: 0.8,
   }));

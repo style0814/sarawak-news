@@ -20,11 +20,11 @@ const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://sarawaknews.my';
 
 export const metadata: Metadata = {
   title: {
-    default: "Sarawak News - Real-time News from Sarawak",
+    default: "Sarawak News - Real-time News from Sarawak, Malaysia",
     template: "%s | Sarawak News"
   },
-  description: "Real-time news aggregator for Sarawak, Malaysia. Community discussions, multi-language support in English, Chinese (中文), and Malay (Bahasa Melayu).",
-  keywords: ["Sarawak", "news", "Malaysia", "Kuching", "Borneo", "Dayak", "Iban", "berita", "新闻"],
+  description: "Sarawak's leading news aggregator with AI-powered summaries. Real-time updates from Sarawak, Malaysia in English, Chinese (中文), and Malay (Bahasa Melayu). Covering politics, economy, culture, sports, and more.",
+  keywords: ["Sarawak news", "Sarawak", "news", "Malaysia", "Kuching", "Borneo", "Dayak", "Iban", "berita Sarawak", "砂拉越新闻", "Sarawak politics", "Sarawak economy", "Borneo news"],
   authors: [{ name: "Sarawak News Team" }],
   creator: "Sarawak News",
   publisher: "Sarawak News",
@@ -43,22 +43,13 @@ export const metadata: Metadata = {
     alternateLocale: ["zh_MY", "ms_MY"],
     url: siteUrl,
     siteName: "Sarawak News",
-    title: "Sarawak News - Real-time News from Sarawak",
-    description: "Real-time news aggregator for Sarawak, Malaysia. Community discussions and multi-language support.",
-    images: [
-      {
-        url: "/og-image.png",
-        width: 1200,
-        height: 630,
-        alt: "Sarawak News - Voice of the Land of Hornbills"
-      }
-    ]
+    title: "Sarawak News - Real-time News from Sarawak, Malaysia",
+    description: "Sarawak's leading news aggregator with AI summaries. Real-time updates in English, Chinese, and Malay.",
   },
   twitter: {
     card: "summary_large_image",
-    title: "Sarawak News - Real-time News from Sarawak",
-    description: "Real-time news aggregator for Sarawak, Malaysia. Community discussions and multi-language support.",
-    images: ["/og-image.png"]
+    title: "Sarawak News - Real-time News from Sarawak, Malaysia",
+    description: "Sarawak's leading news aggregator with AI summaries. Real-time updates in English, Chinese, and Malay.",
   },
   robots: {
     index: true,
@@ -72,8 +63,7 @@ export const metadata: Metadata = {
     }
   },
   verification: {
-    // Add your verification codes here
-    // google: "your-google-verification-code",
+    google: process.env.GOOGLE_SITE_VERIFICATION || undefined,
   },
   category: "news"
 };
@@ -96,6 +86,50 @@ export default function RootLayout({
   return (
     <html lang="en">
       <head>
+        {/* JSON-LD Structured Data for SEO */}
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify({
+              '@context': 'https://schema.org',
+              '@graph': [
+                {
+                  '@type': 'WebSite',
+                  '@id': `${siteUrl}/#website`,
+                  url: siteUrl,
+                  name: 'Sarawak News',
+                  description: 'Real-time news aggregator for Sarawak, Malaysia with AI-powered summaries',
+                  inLanguage: ['en', 'zh', 'ms'],
+                  potentialAction: {
+                    '@type': 'SearchAction',
+                    target: {
+                      '@type': 'EntryPoint',
+                      urlTemplate: `${siteUrl}/?search={search_term_string}`
+                    },
+                    'query-input': 'required name=search_term_string'
+                  }
+                },
+                {
+                  '@type': 'Organization',
+                  '@id': `${siteUrl}/#organization`,
+                  name: 'Sarawak News',
+                  url: siteUrl,
+                  description: 'Sarawak\'s leading news aggregator covering politics, economy, culture, sports, and community discussions.',
+                },
+                {
+                  '@type': 'CollectionPage',
+                  '@id': `${siteUrl}/#webpage`,
+                  url: siteUrl,
+                  name: 'Sarawak News - Real-time News from Sarawak, Malaysia',
+                  isPartOf: { '@id': `${siteUrl}/#website` },
+                  about: { '@id': `${siteUrl}/#organization` },
+                  description: 'Real-time news aggregator for Sarawak, Malaysia with AI-powered summaries in English, Chinese, and Malay.',
+                  inLanguage: ['en', 'zh', 'ms']
+                }
+              ]
+            })
+          }}
+        />
         {/* Google AdSense Script */}
         {ADSENSE_PUB_ID && (
           <Script

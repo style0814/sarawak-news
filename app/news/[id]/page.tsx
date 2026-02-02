@@ -55,5 +55,42 @@ export default async function NewsDetailPage({ params }: Props) {
   // Fetch and increment clicks
   const news = incrementClicks(newsId);
 
-  return <NewsDetail initialNews={news} />;
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://sarawaknews.my';
+
+  const jsonLd = news ? {
+    '@context': 'https://schema.org',
+    '@type': 'NewsArticle',
+    headline: news.title,
+    description: `${news.title} - News from ${news.source_name}`,
+    url: `${siteUrl}/news/${news.id}`,
+    datePublished: news.published_at || news.created_at,
+    dateModified: news.created_at,
+    author: {
+      '@type': 'Organization',
+      name: news.source_name,
+    },
+    publisher: {
+      '@type': 'Organization',
+      name: 'Sarawak News',
+      url: siteUrl,
+    },
+    mainEntityOfPage: {
+      '@type': 'WebPage',
+      '@id': `${siteUrl}/news/${news.id}`,
+    },
+    articleSection: news.category || 'general',
+    inLanguage: 'en',
+  } : null;
+
+  return (
+    <>
+      {jsonLd && (
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        />
+      )}
+      <NewsDetail initialNews={news} />
+    </>
+  );
 }
