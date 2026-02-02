@@ -130,13 +130,13 @@ export default function RootLayout({
             })
           }}
         />
-        {/* Google AdSense Script */}
+        {/* Google AdSense Script - must load early for verification */}
         {ADSENSE_PUB_ID && (
           <Script
             async
             src={`https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-${ADSENSE_PUB_ID}`}
             crossOrigin="anonymous"
-            strategy="lazyOnload"
+            strategy="afterInteractive"
           />
         )}
       </head>
