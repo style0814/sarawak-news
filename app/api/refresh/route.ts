@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { fetchAllFeeds, translateUntranslatedNews } from '@/lib/rss';
 import { logRssError, logApiError } from '@/lib/errorLogger';
+import { setMetadata } from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
 
@@ -16,6 +17,10 @@ export async function POST() {
       });
     }
 
+    // Record the refresh timestamp
+    const refreshedAt = new Date().toISOString();
+    setMetadata('last_refresh', refreshedAt);
+
     // Translate new articles in background (don't wait)
     translateUntranslatedNews().catch(console.error);
 
@@ -23,7 +28,8 @@ export async function POST() {
       success: true,
       added: result.added,
       total: result.total,
-      errors: result.errors
+      errors: result.errors,
+      refreshedAt
     });
   } catch (error) {
     logApiError('/api/refresh', error instanceof Error ? error : new Error('Failed to refresh feeds'));

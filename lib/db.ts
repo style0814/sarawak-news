@@ -232,6 +232,31 @@ function initializeDb(database: Database.Database) {
   `);
 
   database.exec(`CREATE INDEX IF NOT EXISTS idx_news_summaries_news ON news_summaries(news_id)`);
+
+  // App metadata (key-value store for global settings)
+  database.exec(`
+    CREATE TABLE IF NOT EXISTS app_metadata (
+      key TEXT PRIMARY KEY,
+      value TEXT NOT NULL,
+      updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+}
+
+// ============ APP METADATA FUNCTIONS ============
+
+export function getMetadata(key: string): string | null {
+  const db = getDb();
+  const row = db.prepare('SELECT value FROM app_metadata WHERE key = ?').get(key) as { value: string } | undefined;
+  return row?.value || null;
+}
+
+export function setMetadata(key: string, value: string): void {
+  const db = getDb();
+  db.prepare(`
+    INSERT INTO app_metadata (key, value, updated_at) VALUES (?, ?, CURRENT_TIMESTAMP)
+    ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = CURRENT_TIMESTAMP
+  `).run(key, value);
 }
 
 // ============ USER FUNCTIONS ============

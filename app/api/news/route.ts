@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getAllNews, deleteOldNews, NEWS_CATEGORIES } from '@/lib/db';
+import { getAllNews, deleteOldNews, NEWS_CATEGORIES, getMetadata } from '@/lib/db';
 import { logApiError } from '@/lib/errorLogger';
 
 export const dynamic = 'force-dynamic';
@@ -25,6 +25,8 @@ export async function GET(request: NextRequest) {
 
     const result = getAllNews(validPage, validLimit, validCategory);
 
+    const lastRefresh = getMetadata('last_refresh');
+
     return NextResponse.json({
       news: result.news,
       pagination: {
@@ -34,7 +36,8 @@ export async function GET(request: NextRequest) {
         totalPages: result.totalPages,
         hasMore: validPage < result.totalPages
       },
-      categories: NEWS_CATEGORIES
+      categories: NEWS_CATEGORIES,
+      lastRefresh
     });
   } catch (error) {
     logApiError('/api/news', error instanceof Error ? error : new Error('Unknown error'), request);

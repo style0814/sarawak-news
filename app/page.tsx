@@ -33,9 +33,6 @@ interface PaginationData {
   hasMore: boolean;
 }
 
-// Auto-refresh interval: 10 minutes
-const AUTO_REFRESH_INTERVAL = 10 * 60 * 1000;
-
 export default function Home() {
   const router = useRouter();
   const [news, setNews] = useState<NewsData[]>([]);
@@ -46,13 +43,22 @@ export default function Home() {
   const [lastUpdated, setLastUpdated] = useState<Date | undefined>();
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearching, setIsSearching] = useState(false);
-  const [nextRefreshIn, setNextRefreshIn] = useState(10 * 60); // seconds
+  const [nextRefreshIn, setNextRefreshIn] = useState<number | null>(null); // seconds, null until loaded
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [lastRefreshTime, setLastRefreshTime] = useState<string | null>(null);
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [categories, setCategories] = useState<readonly string[]>(['all']);
   const { isDark } = useTheme();
   const { lang, setLanguage } = useLanguage();
   const t = translations[lang];
+
+  // Calculate remaining seconds until next refresh from server timestamp
+  const calcRemainingSeconds = useCallback((lastRefresh: string | null) => {
+    if (!lastRefresh) return 10 * 60; // Default 10 min if no refresh recorded
+    const elapsed = Math.floor((Date.now() - new Date(lastRefresh).getTime()) / 1000);
+    const remaining = 10 * 60 - elapsed;
+    return Math.max(0, remaining); // Don't go negative
+  }, []);
 
   // Fetch news with pagination and category
   const fetchNews = useCallback(async (page: number = 1, showLoading = false, category: string = 'all') => {
@@ -91,7 +97,14 @@ export default function Home() {
 
       if (!data.news || data.news.length === 0) {
         // Database is empty - fetch RSS feeds first
-        await fetch('/api/refresh', { method: 'POST' }).catch(() => {});
+        const refreshRes = await fetch('/api/refresh', { method: 'POST' }).catch(() => null);
+        if (refreshRes) {
+          const refreshData = await refreshRes.json().catch(() => ({}));
+          if (refreshData.refreshedAt) {
+            setLastRefreshTime(refreshData.refreshedAt);
+            setNextRefreshIn(10 * 60);
+          }
+        }
         // Then load news again
         await fetchNews(1, false, selectedCategory);
       } else {
@@ -99,6 +112,13 @@ export default function Home() {
         setPagination(data.pagination);
         setLastUpdated(new Date());
         if (data.categories) setCategories(data.categories);
+        // Use server-side last refresh time for countdown
+        if (data.lastRefresh) {
+          setLastRefreshTime(data.lastRefresh);
+          setNextRefreshIn(calcRemainingSeconds(data.lastRefresh));
+        } else {
+          setNextRefreshIn(10 * 60);
+        }
       }
       setLoading(false);
     };
@@ -107,36 +127,43 @@ export default function Home() {
 
   // Countdown timer for next refresh
   useEffect(() => {
+    if (nextRefreshIn === null) return; // Wait until loaded from server
     const countdownInterval = setInterval(() => {
       setNextRefreshIn(prev => {
-        if (prev <= 1) return 10 * 60; // Reset to 10 minutes
+        if (prev === null || prev <= 0) return 0;
         return prev - 1;
       });
     }, 1000);
     return () => clearInterval(countdownInterval);
-  }, []);
+  }, [nextRefreshIn !== null]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Auto-refresh: Fetch new RSS feeds and update news list
+  // Auto-refresh: Trigger when countdown reaches 0
   useEffect(() => {
-    const interval = setInterval(async () => {
+    if (nextRefreshIn !== 0) return;
+    const doRefresh = async () => {
       setIsRefreshing(true);
       try {
-        // Fetch new news from RSS feeds (ignore errors - RSS feeds may be temporarily unavailable)
-        await fetch('/api/refresh', { method: 'POST' }).catch(() => {});
-        // Then update the news list
+        const res = await fetch('/api/refresh', { method: 'POST' }).catch(() => null);
+        if (res) {
+          const data = await res.json().catch(() => ({}));
+          if (data.refreshedAt) {
+            setLastRefreshTime(data.refreshedAt);
+          }
+        }
         await fetchNews(pagination.page, false, selectedCategory);
         setNextRefreshIn(10 * 60); // Reset countdown
       } catch {
-        // Silently ignore auto-refresh errors to avoid console spam
+        setNextRefreshIn(10 * 60); // Reset even on error
       } finally {
         setIsRefreshing(false);
       }
-    }, AUTO_REFRESH_INTERVAL);
-    return () => clearInterval(interval);
-  }, [fetchNews, pagination.page, selectedCategory]);
+    };
+    doRefresh();
+  }, [nextRefreshIn, fetchNews, pagination.page, selectedCategory]);
 
   // Format countdown
-  const formatCountdown = (seconds: number) => {
+  const formatCountdown = (seconds: number | null) => {
+    if (seconds === null) return '--:--';
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
     return `${mins}:${secs.toString().padStart(2, '0')}`;
