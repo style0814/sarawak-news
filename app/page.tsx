@@ -22,6 +22,8 @@ interface NewsData {
   source_name: string;
   clicks: number;
   comment_count: number;
+  summary_views?: number;
+  tts_listens?: number;
   created_at: string;
 }
 

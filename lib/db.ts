@@ -40,6 +40,8 @@ function initializeDb(database: Database.Database) {
       published_at TEXT,
       clicks INTEGER DEFAULT 0,
       comment_count INTEGER DEFAULT 0,
+      summary_views INTEGER DEFAULT 0,
+      tts_listens INTEGER DEFAULT 0,
       created_at TEXT DEFAULT CURRENT_TIMESTAMP
     )
   `);
@@ -174,6 +176,8 @@ function initializeDb(database: Database.Database) {
   try { database.exec(`ALTER TABLE comments ADD COLUMN flag_reason TEXT`); } catch { /* exists */ }
   try { database.exec(`ALTER TABLE comments ADD COLUMN flagged_at TEXT`); } catch { /* exists */ }
   try { database.exec(`ALTER TABLE comments ADD COLUMN moderation_note TEXT`); } catch { /* exists */ }
+  try { database.exec(`ALTER TABLE news ADD COLUMN summary_views INTEGER DEFAULT 0`); } catch { /* exists */ }
+  try { database.exec(`ALTER TABLE news ADD COLUMN tts_listens INTEGER DEFAULT 0`); } catch { /* exists */ }
 
   // Subscriptions table
   database.exec(`
@@ -382,6 +386,8 @@ export interface NewsItem {
   published_at: string | null;
   clicks: number;
   comment_count: number;
+  summary_views: number;
+  tts_listens: number;
   created_at: string;
   category: string;
   score?: number;
@@ -507,6 +513,16 @@ export function incrementClicks(id: number): NewsItem | null {
   const db = getDb();
   db.prepare('UPDATE news SET clicks = clicks + 1 WHERE id = ?').run(id);
   return db.prepare('SELECT * FROM news WHERE id = ?').get(id) as NewsItem | null;
+}
+
+export function incrementSummaryViews(id: number): void {
+  const db = getDb();
+  db.prepare('UPDATE news SET summary_views = summary_views + 1 WHERE id = ?').run(id);
+}
+
+export function incrementTtsListens(id: number): void {
+  const db = getDb();
+  db.prepare('UPDATE news SET tts_listens = tts_listens + 1 WHERE id = ?').run(id);
 }
 
 export function getNewsById(id: number): NewsItem | null {

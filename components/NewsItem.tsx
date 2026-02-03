@@ -17,6 +17,8 @@ interface NewsItemProps {
   sourceName: string;
   clicks: number;
   commentCount: number;
+  summaryViews: number;
+  ttsListens: number;
   createdAt: string;
   lang: Language;
   onItemClick: (id: number) => void;
@@ -33,6 +35,8 @@ export default function NewsItem({
   sourceName,
   clicks,
   commentCount,
+  summaryViews,
+  ttsListens,
   createdAt,
   lang,
   onItemClick,
@@ -48,6 +52,8 @@ export default function NewsItem({
   const [isLoadingSummary, setIsLoadingSummary] = useState(false);
   const [showSummary, setShowSummary] = useState(false);
   const [isTitleOnly, setIsTitleOnly] = useState(false);
+  const [localSummaryViews, setLocalSummaryViews] = useState(summaryViews);
+  const [localTtsListens, setLocalTtsListens] = useState(ttsListens);
 
   // TTS for summary
   const { speak, stop, isPlaying, isSupported: ttsSupported, setLanguage: setTTSLang } = useSpeechSynthesis({ language: lang });
@@ -134,8 +140,10 @@ export default function NewsItem({
 
       if (response.ok && data.summary) {
         setSummary(data.summary);
-        // Check if it's likely title-only based on summary length
         setIsTitleOnly(data.summary.length < 100 || data.titleOnly);
+        // Track summary view
+        setLocalSummaryViews(prev => prev + 1);
+        fetch(`/api/news/${id}/summary-view`, { method: 'POST' }).catch(() => {});
       } else {
         setSummary(data.error || 'Failed to generate summary');
         setIsTitleOnly(true);
@@ -154,6 +162,9 @@ export default function NewsItem({
       stop();
     } else if (summary) {
       speak(summary);
+      // Track TTS listen
+      setLocalTtsListens(prev => prev + 1);
+      fetch(`/api/news/${id}/tts-listen`, { method: 'POST' }).catch(() => {});
     }
   };
 
@@ -219,6 +230,22 @@ export default function NewsItem({
               <span>{commentCount === 1 ? t.comment : t.comments}</span>
             </button>
 
+            {/* AI Summary views */}
+            {localSummaryViews > 0 && (
+              <div className={`flex items-center gap-1 text-sm ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>
+                <span className="text-purple-500">🤖</span>
+                <span className="font-semibold text-purple-500">{localSummaryViews}</span>
+              </div>
+            )}
+
+            {/* TTS listens */}
+            {localTtsListens > 0 && (
+              <div className={`flex items-center gap-1 text-sm ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>
+                <span className="text-blue-500">🔊</span>
+                <span className="font-semibold text-blue-500">{localTtsListens}</span>
+              </div>
+            )}
+
             {/* Bookmark button */}
             {session && (
               <button
@@ -260,7 +287,7 @@ export default function NewsItem({
               ) : (
                 <>
                   <span>🤖</span>
-                  <span>{showSummary ? 'Hide' : 'AI'}</span>
+                  <span>{showSummary ? (t.hide || 'Hide') : 'AI'}</span>
                 </>
               )}
             </button>
@@ -286,11 +313,11 @@ export default function NewsItem({
                 <div className="flex items-center gap-2">
                   <span className="text-lg">🤖</span>
                   <span className={`text-sm font-medium ${isDark ? 'text-purple-300' : 'text-purple-700'}`}>
-                    AI Summary
+                    {t.aiGeneratedSummary}
                   </span>
                   {isTitleOnly && summary && !isLoadingSummary && (
                     <span className={`text-xs px-2 py-0.5 rounded-full ${isDark ? 'bg-yellow-900/50 text-yellow-300' : 'bg-yellow-100 text-yellow-700'}`}>
-                      Based on title only
+                      {t.titleOnly || 'Based on title only'}
                     </span>
                   )}
                 </div>
@@ -306,7 +333,7 @@ export default function NewsItem({
                           ? 'text-gray-300 hover:bg-gray-600'
                           : 'text-gray-600 hover:bg-purple-100'
                     }`}
-                    title={isPlaying ? 'Stop' : 'Listen'}
+                    title={isPlaying ? t.stopAudio : t.listenToArticle}
                   >
                     {isPlaying ? (
                       <>
@@ -315,12 +342,12 @@ export default function NewsItem({
                           <span className="w-1 h-3 bg-white rounded animate-pulse" style={{ animationDelay: '0.2s' }}></span>
                           <span className="w-1 h-3 bg-white rounded animate-pulse" style={{ animationDelay: '0.4s' }}></span>
                         </span>
-                        <span>Stop</span>
+                        <span>{t.stopAudio}</span>
                       </>
                     ) : (
                       <>
                         <span>🔊</span>
-                        <span>Listen</span>
+                        <span>{t.listenToArticle}</span>
                       </>
                     )}
                   </button>

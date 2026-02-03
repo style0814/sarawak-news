@@ -12,6 +12,8 @@ interface NewsData {
   source_name: string;
   clicks: number;
   comment_count: number;
+  summary_views?: number;
+  tts_listens?: number;
   created_at: string;
 }
 
@@ -65,6 +67,8 @@ export default function NewsList({ news, lang, loading, onItemClick, onDiscussCl
           sourceName={item.source_name}
           clicks={item.clicks}
           commentCount={item.comment_count || 0}
+          summaryViews={item.summary_views || 0}
+          ttsListens={item.tts_listens || 0}
           createdAt={item.created_at}
           lang={lang}
           onItemClick={onItemClick}
