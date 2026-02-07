@@ -80,11 +80,11 @@ export default function BookmarksPage() {
   }
 
   return (
-    <div className={`min-h-screen ${isDark ? 'bg-gray-900 text-white' : 'bg-gradient-to-b from-emerald-50 to-white'}`}>
-      <header className="bg-gradient-to-r from-emerald-700 to-teal-600 text-white shadow-lg">
+    <div className={`min-h-screen ${isDark ? 'bg-gray-900 text-white' : 'bg-gradient-to-b from-orange-50 to-white'}`}>
+      <header className="bg-gradient-to-r from-orange-700 to-amber-600 text-white shadow-lg">
         <div className="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
           <h1 className="text-xl font-bold">{t.myBookmarks}</h1>
-          <Link href="/" className="text-emerald-100 hover:text-white">
+          <Link href="/" className="text-orange-100 hover:text-white">
             {t.backToNews}
           </Link>
         </div>
@@ -95,7 +95,7 @@ export default function BookmarksPage() {
           <div className={`p-8 rounded-xl text-center ${isDark ? 'bg-gray-800' : 'bg-white'} shadow-sm`}>
             <span className="text-4xl mb-4 block">📚</span>
             <p className={isDark ? 'text-gray-400' : 'text-gray-500'}>{t.noBookmarks}</p>
-            <Link href="/" className="text-emerald-600 hover:underline mt-4 inline-block">
+            <Link href="/" className="text-orange-600 hover:underline mt-4 inline-block">
               {t.backToNews}
             </Link>
           </div>
@@ -113,7 +113,7 @@ export default function BookmarksPage() {
                     href={item.source_url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className={`font-medium hover:text-emerald-600 ${isDark ? 'text-white' : 'text-gray-800'}`}
+                    className={`font-medium hover:text-orange-600 ${isDark ? 'text-white' : 'text-gray-800'}`}
                   >
                     {getTitle(item)}
                   </a>

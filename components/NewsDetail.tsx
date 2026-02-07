@@ -43,12 +43,12 @@ export default function NewsDetail({ initialNews }: NewsDetailProps) {
 
   if (!news) {
     return (
-      <div className="min-h-screen bg-gradient-to-b from-emerald-50 to-white dark:from-gray-900 dark:to-gray-800 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-b from-orange-50 to-white dark:from-gray-900 dark:to-gray-800 flex items-center justify-center">
         <div className="text-center">
           <p className="text-gray-500 dark:text-gray-400 mb-4">News not found</p>
           <button
             onClick={() => router.push('/')}
-            className="text-emerald-600 hover:underline"
+            className="text-orange-600 hover:underline"
           >
             {t.backToNews}
           </button>
@@ -63,15 +63,15 @@ export default function NewsDetail({ initialNews }: NewsDetailProps) {
   const timeAgo = getTimeAgo(news.created_at, lang);
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-emerald-50 to-white dark:from-gray-900 dark:to-gray-800">
+    <div className="min-h-screen bg-gradient-to-b from-orange-50 to-white dark:from-gray-900 dark:to-gray-800">
       {/* Header */}
-      <header className="bg-gradient-to-r from-emerald-700 via-emerald-600 to-teal-600 text-white">
+      <header className="bg-gradient-to-r from-orange-700 via-orange-600 to-amber-600 text-white">
         <div className="h-2 bg-gradient-to-r from-yellow-400 via-red-500 to-yellow-400"></div>
         <div className="max-w-4xl mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
             <button
               onClick={() => router.push('/')}
-              className="flex items-center gap-2 text-emerald-100 hover:text-white transition-colors"
+              className="flex items-center gap-2 text-orange-100 hover:text-white transition-colors"
             >
               <span>←</span>
               <span>{t.backToNews}</span>
@@ -90,7 +90,7 @@ export default function NewsDetail({ initialNews }: NewsDetailProps) {
           <div className="flex flex-wrap items-center gap-4 text-sm text-gray-500 dark:text-gray-400 mb-6">
             <span className="flex items-center gap-1.5">
               <span>📰</span>
-              <span className="font-medium text-emerald-600 dark:text-emerald-400">{news.source_name}</span>
+              <span className="font-medium text-orange-600 dark:text-orange-400">{news.source_name}</span>
               <span className="text-gray-400 dark:text-gray-500">({domain})</span>
             </span>
             <span>{timeAgo}</span>
@@ -99,7 +99,7 @@ export default function NewsDetail({ initialNews }: NewsDetailProps) {
               <span>{news.clicks} {news.clicks === 1 ? t.point : t.points}</span>
             </span>
             {news.category && (
-              <span className="px-2 py-0.5 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 rounded text-xs">
+              <span className="px-2 py-0.5 bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400 rounded text-xs">
                 {news.category}
               </span>
             )}
@@ -110,7 +110,7 @@ export default function NewsDetail({ initialNews }: NewsDetailProps) {
               href={news.source_url}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-emerald-500 to-teal-600 text-white font-semibold rounded-lg hover:from-emerald-600 hover:to-teal-700 transition-all shadow-md hover:shadow-lg"
+              className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-orange-500 to-amber-600 text-white font-semibold rounded-lg hover:from-orange-600 hover:to-amber-700 transition-all shadow-md hover:shadow-lg"
             >
               {t.readMore}
               <span>→</span>

@@ -1576,6 +1576,12 @@ export function getUserSubscription(userId: number): Subscription | null {
   const subscription = db.prepare(`SELECT * FROM subscriptions WHERE user_id = ?`).get(userId) as Subscription | undefined;
 
   if (!subscription) {
+    // Check if user exists before inserting (foreign key constraint)
+    const userExists = db.prepare(`SELECT id FROM users WHERE id = ?`).get(userId);
+    if (!userExists) {
+      // Return default free subscription without persisting
+      return { user_id: userId, plan: 'free', status: 'active' } as Subscription;
+    }
     db.prepare(`INSERT INTO subscriptions (user_id, plan, status) VALUES (?, 'free', 'active')`).run(userId);
     return db.prepare(`SELECT * FROM subscriptions WHERE user_id = ?`).get(userId) as Subscription;
   }

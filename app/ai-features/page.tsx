@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useState } from 'react';
 import { useSession } from 'next-auth/react';
+import HornbillLogo from '@/components/HornbillLogo';
 import { translations } from '@/lib/i18n';
 import { useLanguage } from '@/components/LanguageProvider';
 import { useTheme } from '@/components/ThemeProvider';
@@ -53,17 +54,17 @@ export default function AIFeaturesPage() {
   };
 
   return (
-    <div className={`min-h-screen ${isDark ? 'bg-gray-900' : 'bg-gradient-to-b from-emerald-50 to-white'}`}>
+    <div className={`min-h-screen ${isDark ? 'bg-gray-900' : 'bg-gradient-to-b from-orange-50 to-white'}`}>
       {/* Header */}
-      <header className="bg-gradient-to-r from-emerald-700 via-emerald-600 to-teal-600 text-white">
+      <header className="bg-gradient-to-r from-orange-700 via-orange-600 to-amber-600 text-white">
         <div className="h-1.5 bg-gradient-to-r from-yellow-400 via-red-500 to-yellow-400"></div>
         <div className="max-w-6xl mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
             <Link href="/" className="flex items-center gap-2">
-              <span className="text-2xl">🦅</span>
+              <HornbillLogo size="md" />
               <span className="text-xl font-bold">{t.title}</span>
             </Link>
-            <Link href="/" className="text-emerald-100 hover:text-white text-sm">
+            <Link href="/" className="text-orange-100 hover:text-white text-sm">
               ← {t.backToNews}
             </Link>
           </div>
@@ -116,11 +117,11 @@ export default function AIFeaturesPage() {
                 </p>
               </div>
             </div>
-            <div className={`flex items-start gap-3 p-3 rounded-lg ${isDark ? 'bg-emerald-900/20' : 'bg-emerald-50'}`}>
+            <div className={`flex items-start gap-3 p-3 rounded-lg ${isDark ? 'bg-orange-900/20' : 'bg-orange-50'}`}>
               <span className="text-2xl">🔊</span>
               <div>
-                <h3 className={`font-medium ${isDark ? 'text-emerald-300' : 'text-emerald-800'}`}>{t.audioReadFree}</h3>
-                <p className={`text-sm ${isDark ? 'text-emerald-400' : 'text-emerald-600'}`}>
+                <h3 className={`font-medium ${isDark ? 'text-orange-300' : 'text-orange-800'}`}>{t.audioReadFree}</h3>
+                <p className={`text-sm ${isDark ? 'text-orange-400' : 'text-orange-600'}`}>
                   {t.browserTtsDesc}
                 </p>
               </div>
@@ -158,14 +159,14 @@ export default function AIFeaturesPage() {
 
         {/* Feedback Form */}
         {isSubmitted ? (
-          <div className={`rounded-2xl p-8 text-center ${isDark ? 'bg-emerald-900/20' : 'bg-emerald-50'}`}>
+          <div className={`rounded-2xl p-8 text-center ${isDark ? 'bg-orange-900/20' : 'bg-orange-50'}`}>
             <div className="text-5xl mb-4">🙏</div>
-            <h2 className={`text-xl font-bold mb-2 ${isDark ? 'text-emerald-300' : 'text-emerald-800'}`}>
+            <h2 className={`text-xl font-bold mb-2 ${isDark ? 'text-orange-300' : 'text-orange-800'}`}>
               {t.thanksFeedback}
             </h2>
             <Link
               href="/"
-              className="inline-block mt-6 px-6 py-3 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors"
+              className="inline-block mt-6 px-6 py-3 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors"
             >
               {t.backToNews}
             </Link>
@@ -187,7 +188,7 @@ export default function AIFeaturesPage() {
               </label>
               <div className="flex flex-wrap gap-2">
                 {[
-                  { value: 'love_it', label: `😍 ${t.excellent}`, color: 'emerald' },
+                  { value: 'love_it', label: `😍 ${t.excellent}`, color: 'orange' },
                   { value: 'needs_improvement', label: `🤔 ${t.needsWork}`, color: 'amber' },
                   { value: 'not_needed', label: '👎', color: 'red' }
                 ].map((option) => (
@@ -196,7 +197,7 @@ export default function AIFeaturesPage() {
                     onClick={() => setSummaryRating(option.value as FeedbackOption)}
                     className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
                       summaryRating === option.value
-                        ? option.color === 'emerald' ? 'bg-emerald-500 text-white'
+                        ? option.color === 'orange' ? 'bg-orange-500 text-white'
                         : option.color === 'amber' ? 'bg-amber-500 text-white'
                         : 'bg-red-500 text-white'
                         : isDark ? 'bg-gray-700 text-gray-300 hover:bg-gray-600' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
@@ -215,7 +216,7 @@ export default function AIFeaturesPage() {
               </label>
               <div className="flex flex-wrap gap-2">
                 {[
-                  { value: 'love_it', label: `😍 ${t.good}`, color: 'emerald' },
+                  { value: 'love_it', label: `😍 ${t.good}`, color: 'orange' },
                   { value: 'needs_improvement', label: `🤔 ${t.needsWork}`, color: 'amber' },
                   { value: 'not_needed', label: '👎', color: 'red' }
                 ].map((option) => (
@@ -224,7 +225,7 @@ export default function AIFeaturesPage() {
                     onClick={() => setVoiceRating(option.value as FeedbackOption)}
                     className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
                       voiceRating === option.value
-                        ? option.color === 'emerald' ? 'bg-emerald-500 text-white'
+                        ? option.color === 'orange' ? 'bg-orange-500 text-white'
                         : option.color === 'amber' ? 'bg-amber-500 text-white'
                         : 'bg-red-500 text-white'
                         : isDark ? 'bg-gray-700 text-gray-300 hover:bg-gray-600' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
@@ -275,7 +276,7 @@ export default function AIFeaturesPage() {
                 onChange={(e) => setAdditionalFeedback(e.target.value)}
                 placeholder="..."
                 rows={4}
-                className={`w-full px-4 py-3 rounded-lg border focus:outline-none focus:ring-2 focus:ring-emerald-500 ${
+                className={`w-full px-4 py-3 rounded-lg border focus:outline-none focus:ring-2 focus:ring-orange-500 ${
                   isDark ? 'border-gray-700 bg-gray-900 text-white' : 'border-gray-200 bg-white text-gray-900'
                 }`}
               />
@@ -285,7 +286,7 @@ export default function AIFeaturesPage() {
             <button
               onClick={handleSubmit}
               disabled={isSubmitting || !session}
-              className="w-full py-3 px-6 bg-gradient-to-r from-emerald-500 to-teal-600 text-white font-semibold rounded-lg hover:from-emerald-600 hover:to-teal-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full py-3 px-6 bg-gradient-to-r from-orange-500 to-amber-600 text-white font-semibold rounded-lg hover:from-orange-600 hover:to-amber-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isSubmitting ? (
                 <span className="flex items-center justify-center gap-2">
@@ -304,7 +305,7 @@ export default function AIFeaturesPage() {
 
             {!session && (
               <p className={`text-center text-sm mt-3 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
-                <Link href="/auth/login" className="text-emerald-600 hover:underline">{t.login}</Link>
+                <Link href="/auth/login" className="text-orange-600 hover:underline">{t.login}</Link>
               </p>
             )}
           </div>

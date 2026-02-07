@@ -1,7 +1,7 @@
 @import "tailwindcss";
 
 :root {
-  --background: #f0fdf4;
+  --background: #fff7ed;
   --foreground: #171717;
 }
 
@@ -33,12 +33,12 @@ html {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #10b981;
+  background: #f97316;
   border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #059669;
+  background: #ea580c;
 }
 
 /* PWA Install Prompt Animation */

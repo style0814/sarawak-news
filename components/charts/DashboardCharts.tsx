@@ -20,7 +20,7 @@ import {
 
 // Colors for charts
 const COLORS = {
-  primary: '#10b981',
+  primary: '#f97316',
   secondary: '#06b6d4',
   tertiary: '#8b5cf6',
   warning: '#f59e0b',
@@ -31,7 +31,7 @@ const COLORS = {
 const CATEGORY_COLORS: Record<string, string> = {
   general: '#6b7280',
   politics: '#ef4444',
-  economy: '#10b981',
+  economy: '#f97316',
   sports: '#f59e0b',
   crime: '#7c3aed',
   environment: '#22c55e',
@@ -42,7 +42,7 @@ const CATEGORY_COLORS: Record<string, string> = {
   tourism: '#06b6d4'
 };
 
-const PIE_COLORS = ['#10b981', '#06b6d4', '#8b5cf6', '#f59e0b', '#ef4444', '#ec4899', '#3b82f6'];
+const PIE_COLORS = ['#f97316', '#06b6d4', '#8b5cf6', '#f59e0b', '#ef4444', '#ec4899', '#3b82f6'];
 
 interface DailyStats {
   date: string;
@@ -291,16 +291,16 @@ interface OverviewStatsProps {
 export function OverviewStatsCards({ totalNews, totalUsers, totalComments, todayNews, weeklyGrowth }: OverviewStatsProps) {
   return (
     <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-      <div className="p-5 rounded-xl bg-gradient-to-br from-emerald-500/10 to-emerald-600/5 border border-emerald-500/20">
+      <div className="p-5 rounded-xl bg-gradient-to-br from-orange-500/10 to-orange-600/5 border border-orange-500/20">
         <div className="flex items-center gap-3 mb-2">
-          <div className="w-10 h-10 rounded-lg bg-emerald-500/20 flex items-center justify-center">
-            <span className="text-emerald-400 text-lg">📰</span>
+          <div className="w-10 h-10 rounded-lg bg-orange-500/20 flex items-center justify-center">
+            <span className="text-orange-400 text-lg">📰</span>
           </div>
           <h3 className="text-sm text-gray-400">Total News</h3>
         </div>
-        <p className="text-3xl font-bold text-emerald-400">{totalNews.toLocaleString()}</p>
+        <p className="text-3xl font-bold text-orange-400">{totalNews.toLocaleString()}</p>
         {todayNews !== undefined && (
-          <p className="text-xs text-emerald-500 mt-1">+{todayNews} today</p>
+          <p className="text-xs text-orange-500 mt-1">+{todayNews} today</p>
         )}
       </div>
       <div className="p-5 rounded-xl bg-gradient-to-br from-blue-500/10 to-blue-600/5 border border-blue-500/20">

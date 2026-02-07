@@ -5,7 +5,7 @@ A Sarawak news aggregator with real-time ranking, multi-language support, commun
 ## Features
 
 ### All Features (FREE!)
-- **Sarawak-Themed UI** - Green/emerald colors inspired by Sarawak rainforests
+- **Sarawak-Themed UI** - Orange/amber colors with Rhinoceros Hornbill logo
 - **Auto-Refresh** - News updates every 10 minutes automatically
 - **Title Translation** - Automatic translation to Chinese and Malay
 - **Comment System** - Nested discussions with replies and moderation
@@ -202,14 +202,14 @@ docs/
 
 The UI uses a Sarawak-inspired color palette:
 
-- **Emerald/Teal** - Primary (forest green)
+- **Orange/Amber** - Primary (Sarawak identity)
 - **Yellow/Red** - Accent (Sarawak flag colors)
 - **White/Gray** - Cards and backgrounds
 
 ```
-Header: emerald-700 -> teal-600 gradient
+Header: orange-700 -> amber-600 gradient
 Accent bar: yellow-400 -> red-500 -> yellow-400
-Buttons: emerald-500 -> teal-600
+Buttons: orange-500 -> amber-600
 Dark mode: gray-900 background
 ```
 

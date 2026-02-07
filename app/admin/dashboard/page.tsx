@@ -165,6 +165,8 @@ export default function AdminDashboard() {
 
   // Users state
   const [users, setUsers] = useState<User[]>([]);
+  const [usersLoading, setUsersLoading] = useState(false);
+  const [usersError, setUsersError] = useState<string | null>(null);
 
   // News state
   const [news, setNews] = useState<NewsItem[]>([]);
@@ -276,13 +278,22 @@ export default function AdminDashboard() {
   }, []);
 
   const fetchUsers = useCallback(async () => {
+    setUsersLoading(true);
+    setUsersError(null);
     try {
       const response = await fetch('/api/admin?tab=users');
-      if (!response.ok) throw new Error('Failed to fetch');
+      if (!response.ok) throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       const data = await response.json();
+      console.log('Users API response:', data);
       setUsers(data.users || []);
-    } catch {
-      console.error('Failed to load users');
+      if (!data.users || data.users.length === 0) {
+        setUsersError('No users found in database');
+      }
+    } catch (err) {
+      console.error('Failed to load users:', err);
+      setUsersError(err instanceof Error ? err.message : 'Failed to load users');
+    } finally {
+      setUsersLoading(false);
     }
   }, []);
 
@@ -793,7 +804,7 @@ export default function AdminDashboard() {
   if (!authChecked) {
     return (
       <div className="min-h-screen bg-gray-900 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-500"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-500"></div>
       </div>
     );
   }
@@ -811,7 +822,7 @@ export default function AdminDashboard() {
   return (
     <div className="min-h-screen bg-gray-900 text-white">
       {/* Header */}
-      <header className="bg-gradient-to-r from-emerald-700 to-teal-600 shadow-lg">
+      <header className="bg-gradient-to-r from-orange-700 to-amber-600 shadow-lg">
         <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center">
@@ -822,7 +833,7 @@ export default function AdminDashboard() {
             <h1 className="text-xl font-bold">Admin Dashboard</h1>
           </div>
           <div className="flex items-center gap-4">
-            <Link href="/" className="text-emerald-100 hover:text-white text-sm">
+            <Link href="/" className="text-orange-100 hover:text-white text-sm">
               View Site
             </Link>
             <button
@@ -845,7 +856,7 @@ export default function AdminDashboard() {
                 onClick={() => setActiveTab(tab.key)}
                 className={`py-3 px-6 font-medium text-sm whitespace-nowrap border-b-2 transition-colors flex items-center gap-2 ${
                   activeTab === tab.key
-                    ? 'border-emerald-500 text-emerald-400 bg-emerald-500/10'
+                    ? 'border-orange-500 text-orange-400 bg-orange-500/10'
                     : 'border-transparent text-gray-400 hover:text-gray-200 hover:bg-gray-800'
                 }`}
               >
@@ -867,7 +878,7 @@ export default function AdminDashboard() {
           <div className="space-y-6">
             {loading ? (
               <div className="flex justify-center py-12">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-500"></div>
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500"></div>
               </div>
             ) : (
               <>
@@ -893,7 +904,7 @@ export default function AdminDashboard() {
                       className={`flex items-center gap-2 px-6 py-3 rounded-lg font-medium transition-all ${
                         rssRefreshing
                           ? 'bg-gray-600 text-gray-400 cursor-not-allowed'
-                          : 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-md hover:shadow-lg'
+                          : 'bg-orange-600 hover:bg-orange-700 text-white shadow-md hover:shadow-lg'
                       }`}
                     >
                       {rssRefreshing ? (
@@ -1085,7 +1096,7 @@ export default function AdminDashboard() {
                           {dailyStats.map(day => (
                             <tr key={day.date} className="border-b border-gray-700/50">
                               <td className="py-2">{day.date}</td>
-                              <td className="py-2 text-right text-emerald-400">{day.news_count}</td>
+                              <td className="py-2 text-right text-orange-400">{day.news_count}</td>
                               <td className="py-2 text-right text-blue-400">{day.comment_count}</td>
                               <td className="py-2 text-right text-yellow-400">{day.click_count}</td>
                             </tr>
@@ -1106,7 +1117,7 @@ export default function AdminDashboard() {
                       <ul className="space-y-2">
                         {topNews.map(item => (
                           <li key={item.id} className="text-sm text-gray-300 truncate">
-                            <span className="font-medium text-emerald-400">{item.clicks}</span> - {item.title}
+                            <span className="font-medium text-orange-400">{item.clicks}</span> - {item.title}
                           </li>
                         ))}
                       </ul>
@@ -1137,7 +1148,25 @@ export default function AdminDashboard() {
         {/* Users Tab */}
         {activeTab === 'users' && (
           <div className="p-6 rounded-xl bg-gray-800 border border-gray-700">
-            <h2 className="text-lg font-bold mb-4">{t.manageUsers}</h2>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-bold">{t.manageUsers}</h2>
+              <button onClick={fetchUsers} className="text-xs px-3 py-1 bg-orange-600 hover:bg-orange-500 rounded">
+                Refresh
+              </button>
+            </div>
+            {usersLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500"></div>
+                <span className="ml-3 text-gray-400">Loading users...</span>
+              </div>
+            ) : usersError && users.length === 0 ? (
+              <div className="text-center py-8">
+                <p className="text-red-400 mb-2">{usersError}</p>
+                <button onClick={fetchUsers} className="text-orange-400 hover:text-orange-300 text-sm underline">
+                  Try Again
+                </button>
+              </div>
+            ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
@@ -1158,7 +1187,7 @@ export default function AdminDashboard() {
                       <td className="py-2 text-gray-400">{user.email}</td>
                       <td className="py-2">{user.display_name}</td>
                       <td className="py-2">
-                        <span className={`px-2 py-1 rounded text-xs ${user.is_admin ? 'bg-emerald-500/20 text-emerald-400' : 'bg-gray-600 text-gray-300'}`}>
+                        <span className={`px-2 py-1 rounded text-xs ${user.is_admin ? 'bg-orange-500/20 text-orange-400' : 'bg-gray-600 text-gray-300'}`}>
                           {user.is_admin ? 'Admin' : 'User'}
                         </span>
                       </td>
@@ -1175,6 +1204,7 @@ export default function AdminDashboard() {
                 </tbody>
               </table>
             </div>
+            )}
           </div>
         )}
 
@@ -1191,7 +1221,7 @@ export default function AdminDashboard() {
                     value={newsSearch}
                     onChange={(e) => setNewsSearch(e.target.value)}
                     placeholder={t.searchPlaceholder}
-                    className="w-full px-3 py-2 rounded bg-gray-700 border border-gray-600 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                    className="w-full px-3 py-2 rounded bg-gray-700 border border-gray-600 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
                   />
                 </div>
                 <div>
@@ -1216,7 +1246,7 @@ export default function AdminDashboard() {
                     {categories.map(c => <option key={c} value={c}>{c}</option>)}
                   </select>
                 </div>
-                <button type="submit" className="px-4 py-2 bg-emerald-600 text-white rounded text-sm hover:bg-emerald-700">
+                <button type="submit" className="px-4 py-2 bg-orange-600 text-white rounded text-sm hover:bg-orange-700">
                   {t.search}
                 </button>
               </form>
@@ -1259,7 +1289,7 @@ export default function AdminDashboard() {
                         <td className="py-2 max-w-xs truncate">{item.title}</td>
                         <td className="py-2 text-gray-400">{item.source_name}</td>
                         <td className="py-2">{item.category || 'general'}</td>
-                        <td className="py-2 text-emerald-400">{item.clicks}</td>
+                        <td className="py-2 text-orange-400">{item.clicks}</td>
                         <td className="py-2">
                           <button onClick={() => handleDeleteNews(item.id)} className="text-red-400 hover:text-red-300 text-xs">
                             {t.delete}
@@ -1305,7 +1335,7 @@ export default function AdminDashboard() {
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="p-4 rounded-xl bg-gray-800 border border-gray-700">
                   <h3 className="text-sm text-gray-400">{t.totalComments}</h3>
-                  <p className="text-2xl font-bold text-emerald-400">{moderationStats.totalComments}</p>
+                  <p className="text-2xl font-bold text-orange-400">{moderationStats.totalComments}</p>
                 </div>
                 <div className="p-4 rounded-xl bg-gray-800 border border-yellow-700/50">
                   <h3 className="text-sm text-gray-400">{t.flagged || 'Flagged'}</h3>
@@ -1326,7 +1356,7 @@ export default function AdminDashboard() {
                   onClick={() => handleCommentFilterChange('all')}
                   className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
                     commentFilter === 'all'
-                      ? 'bg-emerald-600 text-white'
+                      ? 'bg-orange-600 text-white'
                       : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
                   }`}
                 >
@@ -1422,7 +1452,7 @@ export default function AdminDashboard() {
                           )}
                         </td>
                         <td className="py-3 max-w-xs truncate text-gray-400">{comment.news_title}</td>
-                        <td className="py-3 text-emerald-400">{comment.likes}</td>
+                        <td className="py-3 text-orange-400">{comment.likes}</td>
                         <td className="py-3">
                           <div className="flex flex-col gap-1">
                             <button
@@ -1689,7 +1719,7 @@ export default function AdminDashboard() {
               <h2 className="text-lg font-bold">{t.manageFeeds || 'Manage RSS Feeds'}</h2>
               <button
                 onClick={() => setShowAddFeed(!showAddFeed)}
-                className="px-4 py-2 bg-emerald-600 text-white rounded-lg text-sm hover:bg-emerald-700"
+                className="px-4 py-2 bg-orange-600 text-white rounded-lg text-sm hover:bg-orange-700"
               >
                 {showAddFeed ? (t.cancel || 'Cancel') : (t.addFeed || 'Add Feed')}
               </button>
@@ -1712,7 +1742,7 @@ export default function AdminDashboard() {
                       value={newFeedName}
                       onChange={(e) => setNewFeedName(e.target.value)}
                       placeholder="e.g. Borneo Post"
-                      className="w-full px-3 py-2 rounded bg-gray-700 border border-gray-600 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                      className="w-full px-3 py-2 rounded bg-gray-700 border border-gray-600 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
                     />
                   </div>
                   <div>
@@ -1722,7 +1752,7 @@ export default function AdminDashboard() {
                       value={newFeedUrl}
                       onChange={(e) => setNewFeedUrl(e.target.value)}
                       placeholder="https://example.com/feed/"
-                      className="w-full px-3 py-2 rounded bg-gray-700 border border-gray-600 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                      className="w-full px-3 py-2 rounded bg-gray-700 border border-gray-600 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
                     />
                   </div>
                   <label className="flex items-center gap-2 cursor-pointer">
@@ -1730,13 +1760,13 @@ export default function AdminDashboard() {
                       type="checkbox"
                       checked={newFeedIsSarawak}
                       onChange={(e) => setNewFeedIsSarawak(e.target.checked)}
-                      className="rounded border-gray-600 bg-gray-700 text-emerald-600 focus:ring-emerald-500"
+                      className="rounded border-gray-600 bg-gray-700 text-orange-600 focus:ring-orange-500"
                     />
                     <span className="text-sm text-gray-300">{t.sarawakSource || 'Sarawak-dedicated source (all articles accepted)'}</span>
                   </label>
                   <button
                     onClick={handleAddFeed}
-                    className="px-4 py-2 bg-emerald-600 text-white rounded-lg text-sm hover:bg-emerald-700"
+                    className="px-4 py-2 bg-orange-600 text-white rounded-lg text-sm hover:bg-orange-700"
                   >
                     {t.addFeed || 'Add Feed'}
                   </button>
@@ -1781,7 +1811,7 @@ export default function AdminDashboard() {
                         <td className="py-3">
                           <span className={`px-2 py-1 rounded text-xs ${
                             feed.is_sarawak_source === 1
-                              ? 'bg-emerald-500/20 text-emerald-400'
+                              ? 'bg-orange-500/20 text-orange-400'
                               : 'bg-gray-600 text-gray-300'
                           }`}>
                             {feed.is_sarawak_source === 1 ? (t.sarawak || 'Sarawak') : (t.filtered || 'Filtered')}
@@ -1839,7 +1869,7 @@ export default function AdminDashboard() {
               <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                 <div className="p-4 rounded-xl bg-gray-800 border border-gray-700">
                   <h3 className="text-sm text-gray-400">{t.premiumUsers || 'Premium Users'}</h3>
-                  <p className="text-2xl font-bold text-emerald-400">{subscriptionStats.totalPremium}</p>
+                  <p className="text-2xl font-bold text-orange-400">{subscriptionStats.totalPremium}</p>
                 </div>
                 <div className="p-4 rounded-xl bg-gray-800 border border-gray-700">
                   <h3 className="text-sm text-gray-400">{t.freeUsers || 'Free Users'}</h3>
@@ -1849,9 +1879,9 @@ export default function AdminDashboard() {
                   <h3 className="text-sm text-gray-400">{t.pendingPayments || 'Pending Payments'}</h3>
                   <p className="text-2xl font-bold text-yellow-400">{subscriptionStats.pendingPayments}</p>
                 </div>
-                <div className="p-4 rounded-xl bg-gray-800 border border-emerald-700/50">
+                <div className="p-4 rounded-xl bg-gray-800 border border-orange-700/50">
                   <h3 className="text-sm text-gray-400">{t.revenueThisMonth || 'Revenue (This Month)'}</h3>
-                  <p className="text-2xl font-bold text-emerald-400">RM {subscriptionStats.revenueThisMonth.toFixed(2)}</p>
+                  <p className="text-2xl font-bold text-orange-400">RM {subscriptionStats.revenueThisMonth.toFixed(2)}</p>
                 </div>
               </div>
             )}
@@ -1874,7 +1904,7 @@ export default function AdminDashboard() {
                   onClick={() => handlePaymentFilterChange('approved')}
                   className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
                     paymentFilter === 'approved'
-                      ? 'bg-emerald-600 text-white'
+                      ? 'bg-orange-600 text-white'
                       : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
                   }`}
                 >
@@ -1937,7 +1967,7 @@ export default function AdminDashboard() {
                           <div className="font-medium">{payment.username}</div>
                           <div className="text-xs text-gray-500">{payment.email}</div>
                         </td>
-                        <td className="py-3 text-emerald-400 font-medium">RM {payment.amount.toFixed(2)}</td>
+                        <td className="py-3 text-orange-400 font-medium">RM {payment.amount.toFixed(2)}</td>
                         <td className="py-3">
                           <span className={`px-2 py-1 rounded text-xs ${
                             payment.payment_method === 'duitnow' ? 'bg-pink-500/20 text-pink-400' :

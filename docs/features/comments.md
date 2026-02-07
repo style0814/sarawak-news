@@ -145,7 +145,7 @@ CommentSection.tsx
 Each reply level gets indented with a left border:
 
 ```typescript
-<div className={`${depth > 0 ? 'ml-6 pl-4 border-l-2 border-emerald-100' : ''}`}>
+<div className={`${depth > 0 ? 'ml-6 pl-4 border-l-2 border-orange-100' : ''}`}>
 ```
 
 **Depth 0 (root):** No indent

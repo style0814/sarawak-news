@@ -348,7 +348,7 @@ When user has no bookmarks:
   <p className="mt-2 text-gray-500">
     Start saving articles by clicking the bookmark icon.
   </p>
-  <Link href="/" className="mt-4 inline-block text-emerald-500">
+  <Link href="/" className="mt-4 inline-block text-orange-500">
     Browse News
   </Link>
 </div>

@@ -47,7 +47,7 @@ export default function Pagination({ currentPage, totalPages, onPageChange, lang
         <button
           onClick={() => onPageChange(currentPage - 1)}
           disabled={currentPage <= 1}
-          className="px-3 py-2 text-sm font-medium text-gray-600 hover:bg-emerald-50 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          className="px-3 py-2 text-sm font-medium text-gray-600 hover:bg-orange-50 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
         >
           ← {t.previous}
         </button>
@@ -61,8 +61,8 @@ export default function Pagination({ currentPage, totalPages, onPageChange, lang
                 onClick={() => onPageChange(page)}
                 className={`w-10 h-10 text-sm font-medium rounded-lg transition-colors ${
                   page === currentPage
-                    ? 'bg-emerald-500 text-white'
-                    : 'text-gray-600 hover:bg-emerald-50'
+                    ? 'bg-orange-500 text-white'
+                    : 'text-gray-600 hover:bg-orange-50'
                 }`}
               >
                 {page}
@@ -74,7 +74,7 @@ export default function Pagination({ currentPage, totalPages, onPageChange, lang
         </div>
 
         {/* Mobile Current Page */}
-        <div className="sm:hidden px-4 py-2 bg-emerald-500 text-white rounded-lg text-sm font-medium">
+        <div className="sm:hidden px-4 py-2 bg-orange-500 text-white rounded-lg text-sm font-medium">
           {currentPage}
         </div>
 
@@ -82,7 +82,7 @@ export default function Pagination({ currentPage, totalPages, onPageChange, lang
         <button
           onClick={() => onPageChange(currentPage + 1)}
           disabled={currentPage >= totalPages}
-          className="px-3 py-2 text-sm font-medium text-gray-600 hover:bg-emerald-50 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          className="px-3 py-2 text-sm font-medium text-gray-600 hover:bg-orange-50 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
         >
           {t.next} →
         </button>

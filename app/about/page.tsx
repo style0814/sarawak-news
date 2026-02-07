@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import HornbillLogo from '@/components/HornbillLogo';
 import { useLanguage } from '@/components/LanguageProvider';
 import { useTheme } from '@/components/ThemeProvider';
 import { translations } from '@/lib/i18n';
@@ -85,17 +86,17 @@ export default function AboutPage() {
   const c = content[lang];
 
   return (
-    <div className={`min-h-screen ${isDark ? 'bg-gray-900' : 'bg-gradient-to-b from-emerald-50 to-white'}`}>
+    <div className={`min-h-screen ${isDark ? 'bg-gray-900' : 'bg-gradient-to-b from-orange-50 to-white'}`}>
       {/* Header */}
-      <header className="bg-gradient-to-r from-emerald-700 via-emerald-600 to-teal-600 text-white">
+      <header className="bg-gradient-to-r from-orange-700 via-orange-600 to-amber-600 text-white">
         <div className="h-1.5 bg-gradient-to-r from-yellow-400 via-red-500 to-yellow-400"></div>
         <div className="max-w-6xl mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
             <Link href="/" className="flex items-center gap-2">
-              <span className="text-2xl">🦅</span>
+              <HornbillLogo size="md" className="text-white" />
               <span className="text-xl font-bold">{t.title}</span>
             </Link>
-            <Link href="/" className="text-emerald-100 hover:text-white text-sm">
+            <Link href="/" className="text-orange-100 hover:text-white text-sm">
               ← {t.backToNews}
             </Link>
           </div>
@@ -105,7 +106,7 @@ export default function AboutPage() {
       <main className="max-w-4xl mx-auto px-4 py-12">
         {/* Hero */}
         <div className="text-center mb-12">
-          <div className="text-6xl mb-4">🦅</div>
+          <div className="mb-4"><HornbillLogo size="hero" className={isDark ? 'text-orange-400' : 'text-orange-600'} /></div>
           <h1 className={`text-4xl font-bold mb-3 ${isDark ? 'text-white' : 'text-gray-900'}`}>
             {c.title}
           </h1>
@@ -137,7 +138,7 @@ export default function AboutPage() {
               { icon: '🔊', title: c.feature4, desc: c.feature4Desc },
               { icon: '💬', title: c.feature5, desc: c.feature5Desc },
             ].map((feature, i) => (
-              <div key={i} className={`p-4 rounded-xl ${isDark ? 'bg-gray-700/50' : 'bg-emerald-50'}`}>
+              <div key={i} className={`p-4 rounded-xl ${isDark ? 'bg-gray-700/50' : 'bg-orange-50'}`}>
                 <div className="flex items-start gap-3">
                   <span className="text-2xl">{feature.icon}</span>
                   <div>
@@ -164,7 +165,7 @@ export default function AboutPage() {
           </p>
           <div className="flex flex-wrap gap-2">
             {['Politics', 'Economy', 'Sports', 'Culture', 'Education', 'Health', 'Infrastructure', 'Tourism', 'Environment', 'Crime'].map(cat => (
-              <span key={cat} className={`px-3 py-1 rounded-full text-sm ${isDark ? 'bg-emerald-900/50 text-emerald-300' : 'bg-emerald-100 text-emerald-700'}`}>
+              <span key={cat} className={`px-3 py-1 rounded-full text-sm ${isDark ? 'bg-orange-900/50 text-orange-300' : 'bg-orange-100 text-orange-700'}`}>
                 {cat}
               </span>
             ))}
@@ -182,16 +183,16 @@ export default function AboutPage() {
         </section>
 
         {/* Contact */}
-        <section className={`rounded-2xl p-8 text-center ${isDark ? 'bg-emerald-900/20' : 'bg-emerald-50'}`}>
-          <h2 className={`text-2xl font-bold mb-4 ${isDark ? 'text-emerald-300' : 'text-emerald-800'}`}>
+        <section className={`rounded-2xl p-8 text-center ${isDark ? 'bg-orange-900/20' : 'bg-orange-50'}`}>
+          <h2 className={`text-2xl font-bold mb-4 ${isDark ? 'text-orange-300' : 'text-orange-800'}`}>
             {c.contact}
           </h2>
-          <p className={`mb-6 ${isDark ? 'text-emerald-400' : 'text-emerald-700'}`}>
+          <p className={`mb-6 ${isDark ? 'text-orange-400' : 'text-orange-700'}`}>
             {c.contactText}
           </p>
           <Link
             href="/ai-features"
-            className="inline-block px-6 py-3 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors"
+            className="inline-block px-6 py-3 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors"
           >
             {t.submitFeedback || 'Give Feedback'}
           </Link>
@@ -201,9 +202,9 @@ export default function AboutPage() {
       {/* Footer */}
       <footer className={`py-8 text-center ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>
         <div className="flex items-center justify-center gap-4 text-sm">
-          <Link href="/privacy" className="hover:text-emerald-600">Privacy Policy</Link>
+          <Link href="/privacy" className="hover:text-orange-600">Privacy Policy</Link>
           <span>|</span>
-          <Link href="/terms" className="hover:text-emerald-600">Terms of Service</Link>
+          <Link href="/terms" className="hover:text-orange-600">Terms of Service</Link>
         </div>
         <p className="mt-4 text-xs">© 2024 Sarawak News. All rights reserved.</p>
       </footer>

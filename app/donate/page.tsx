@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import { useState } from 'react';
+import HornbillLogo from '@/components/HornbillLogo';
 import { translations } from '@/lib/i18n';
 import { useLanguage } from '@/components/LanguageProvider';
 
@@ -15,17 +16,17 @@ export default function DonatePage() {
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('duitnow');
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-emerald-50 to-white dark:from-gray-900 dark:to-gray-800">
+    <div className="min-h-screen bg-gradient-to-b from-orange-50 to-white dark:from-gray-900 dark:to-gray-800">
       {/* Header */}
-      <header className="bg-gradient-to-r from-emerald-700 via-emerald-600 to-teal-600 text-white">
+      <header className="bg-gradient-to-r from-orange-700 via-orange-600 to-amber-600 text-white">
         <div className="h-1.5 bg-gradient-to-r from-yellow-400 via-red-500 to-yellow-400"></div>
         <div className="max-w-6xl mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
             <Link href="/" className="flex items-center gap-2">
-              <span className="text-2xl">🦅</span>
+              <HornbillLogo size="md" />
               <span className="text-xl font-bold">Sarawak News</span>
             </Link>
-            <Link href="/" className="text-emerald-100 hover:text-white text-sm">
+            <Link href="/" className="text-orange-100 hover:text-white text-sm">
               ← {t.backToNews || 'Back to News'}
             </Link>
           </div>
@@ -45,12 +46,12 @@ export default function DonatePage() {
         </div>
 
         {/* Free Features Reminder */}
-        <div className="bg-emerald-50 dark:bg-emerald-900/20 rounded-2xl p-6 mb-8">
-          <h2 className="font-semibold text-emerald-800 dark:text-emerald-300 mb-3 flex items-center gap-2">
+        <div className="bg-orange-50 dark:bg-orange-900/20 rounded-2xl p-6 mb-8">
+          <h2 className="font-semibold text-orange-800 dark:text-orange-300 mb-3 flex items-center gap-2">
             <span>🎉</span>
             {t.allFeaturesFree || 'All Features Are Free!'}
           </h2>
-          <ul className="space-y-2 text-emerald-700 dark:text-emerald-400 text-sm">
+          <ul className="space-y-2 text-orange-700 dark:text-orange-400 text-sm">
             <li className="flex items-center gap-2">
               <span>✓</span> {t.readAllNews || 'Read all news articles'}
             </li>

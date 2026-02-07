@@ -308,7 +308,7 @@ export default function ListenAllPlayer({ news, lang }: ListenAllPlayerProps) {
             {/* Stats */}
             <div className="flex gap-4 text-sm">
               <div className={`flex-1 text-center p-2 rounded-lg ${isDark ? 'bg-gray-700' : 'bg-gray-100'}`}>
-                <div className="font-bold text-lg text-emerald-500">{listenedCount}</div>
+                <div className="font-bold text-lg text-orange-500">{listenedCount}</div>
                 <div className={`text-xs ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>Listened</div>
               </div>
               <div className={`flex-1 text-center p-2 rounded-lg ${isDark ? 'bg-gray-700' : 'bg-gray-100'}`}>

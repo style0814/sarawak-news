@@ -172,11 +172,11 @@ export default function NewsItem({
     <article className={`group p-4 transition-all duration-200 border-b last:border-b-0 ${
       isDark
         ? 'hover:bg-gray-700/50 border-gray-700'
-        : 'hover:bg-emerald-50/50 border-gray-100'
+        : 'hover:bg-orange-50/50 border-gray-100'
     }`}>
       <div className="flex gap-4">
         {/* Rank Badge */}
-        <div className="flex-shrink-0 w-10 h-10 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-lg flex items-center justify-center text-white font-bold shadow-sm group-hover:shadow-md transition-shadow">
+        <div className="flex-shrink-0 w-10 h-10 bg-gradient-to-br from-orange-500 to-amber-600 rounded-lg flex items-center justify-center text-white font-bold shadow-sm group-hover:shadow-md transition-shadow">
           {rank}
         </div>
 
@@ -186,7 +186,7 @@ export default function NewsItem({
           <h3 className="mb-2">
             <button
               onClick={handleClick}
-              className={`text-left text-lg font-medium hover:text-emerald-600 transition-colors leading-snug ${
+              className={`text-left text-lg font-medium hover:text-orange-600 transition-colors leading-snug ${
                 isDark ? 'text-white' : 'text-gray-800'
               }`}
             >
@@ -201,7 +201,7 @@ export default function NewsItem({
               <span className={`w-4 h-4 rounded-full flex items-center justify-center text-xs ${isDark ? 'bg-gray-600' : 'bg-gray-200'}`}>
                 📰
               </span>
-              <span className="font-medium text-emerald-600">{sourceName}</span>
+              <span className="font-medium text-orange-600">{sourceName}</span>
               <span className={isDark ? 'text-gray-500' : 'text-gray-400'}>({domain})</span>
             </span>
 
@@ -215,15 +215,15 @@ export default function NewsItem({
           <div className="flex flex-wrap items-center gap-3 mt-3">
             {/* Views */}
             <div className="flex items-center gap-1.5 text-sm">
-              <span className="text-emerald-500">👁</span>
-              <span className="font-semibold text-emerald-600">{clicks}</span>
+              <span className="text-orange-500">👁</span>
+              <span className="font-semibold text-orange-600">{clicks}</span>
               <span className={isDark ? 'text-gray-500' : 'text-gray-400'}>{clicks === 1 ? t.point : t.points}</span>
             </div>
 
             {/* Comments */}
             <button
               onClick={() => onDiscussClick(id)}
-              className={`flex items-center gap-1.5 text-sm hover:text-emerald-600 transition-colors ${isDark ? 'text-gray-400' : 'text-gray-500'}`}
+              className={`flex items-center gap-1.5 text-sm hover:text-orange-600 transition-colors ${isDark ? 'text-gray-400' : 'text-gray-500'}`}
             >
               <span>💬</span>
               <span className="font-semibold">{commentCount}</span>
@@ -295,7 +295,7 @@ export default function NewsItem({
             {/* Discuss button */}
             <button
               onClick={() => onDiscussClick(id)}
-              className={`ml-auto px-3 py-1 text-sm font-medium text-emerald-600 rounded-full transition-colors ${isDark ? 'hover:bg-emerald-900/50' : 'hover:bg-emerald-100'}`}
+              className={`ml-auto px-3 py-1 text-sm font-medium text-orange-600 rounded-full transition-colors ${isDark ? 'hover:bg-orange-900/50' : 'hover:bg-orange-100'}`}
             >
               {t.discuss} →
             </button>
@@ -328,7 +328,7 @@ export default function NewsItem({
                     onClick={handleReadSummary}
                     className={`flex items-center gap-1.5 px-2 py-1 text-sm rounded-full transition-all ${
                       isPlaying
-                        ? 'bg-emerald-500 text-white'
+                        ? 'bg-orange-500 text-white'
                         : isDark
                           ? 'text-gray-300 hover:bg-gray-600'
                           : 'text-gray-600 hover:bg-purple-100'

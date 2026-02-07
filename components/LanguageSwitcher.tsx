@@ -22,7 +22,7 @@ export default function LanguageSwitcher({ currentLang, onLanguageChange }: Lang
           onClick={() => onLanguageChange(code)}
           className={`px-3 py-1.5 rounded-full text-sm font-medium transition-all duration-200 flex items-center gap-1 ${
             currentLang === code
-              ? 'bg-white text-emerald-700 shadow-md'
+              ? 'bg-white text-orange-700 shadow-md'
               : 'text-white hover:bg-white/20'
           }`}
           title={label}

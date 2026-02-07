@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { Language, translations } from '@/lib/i18n';
 import LanguageSwitcher from './LanguageSwitcher';
 import DarkModeToggle from './DarkModeToggle';
+import HornbillLogo from './HornbillLogo';
 
 interface HeaderProps {
   lang: Language;
@@ -17,7 +18,7 @@ export default function Header({ lang, onLanguageChange, lastUpdated }: HeaderPr
   const t = translations[lang];
 
   return (
-    <header className="bg-gradient-to-r from-emerald-700 via-emerald-600 to-teal-600 text-white shadow-lg">
+    <header className="bg-gradient-to-r from-orange-700 via-orange-600 to-amber-600 text-white shadow-lg">
       {/* Decorative Sarawak pattern bar */}
       <div className="h-1.5 sm:h-2 bg-gradient-to-r from-yellow-400 via-red-500 to-yellow-400"></div>
 
@@ -26,11 +27,11 @@ export default function Header({ lang, onLanguageChange, lastUpdated }: HeaderPr
           {/* Logo and Title */}
           <Link href="/" className="flex items-center gap-2 sm:gap-3">
             <div className="w-10 h-10 sm:w-12 sm:h-12 bg-white/20 rounded-full flex items-center justify-center flex-shrink-0">
-              <span className="text-xl sm:text-2xl">🦅</span>
+              <HornbillLogo size="md" className="text-white" />
             </div>
             <div>
               <h1 className="text-xl sm:text-2xl font-bold tracking-tight">{t.title}</h1>
-              <p className="text-emerald-100 text-xs sm:text-sm hidden xs:block">{t.subtitle}</p>
+              <p className="text-orange-100 text-xs sm:text-sm hidden xs:block">{t.subtitle}</p>
             </div>
           </Link>
 
@@ -38,7 +39,7 @@ export default function Header({ lang, onLanguageChange, lastUpdated }: HeaderPr
           <div className="flex items-center justify-between sm:justify-end gap-2 sm:gap-3">
             {/* Last Updated */}
             {lastUpdated && (
-              <span className="text-emerald-100 text-xs hidden lg:inline">
+              <span className="text-orange-100 text-xs hidden lg:inline">
                 {t.lastUpdated}: {lastUpdated.toLocaleTimeString()}
               </span>
             )}
@@ -90,7 +91,7 @@ export default function Header({ lang, onLanguageChange, lastUpdated }: HeaderPr
                     <span className="text-sm">💬</span>
                   </Link>
                 </div>
-                <span className="hidden sm:inline text-sm text-emerald-100">
+                <span className="hidden sm:inline text-sm text-orange-100">
                   {session.user?.name}
                 </span>
                 <button

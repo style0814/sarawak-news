@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import HornbillLogo from '@/components/HornbillLogo';
 import { translations } from '@/lib/i18n';
 import { useLanguage } from '@/components/LanguageProvider';
 
@@ -9,17 +10,17 @@ export default function FeaturesPage() {
   const t = translations[lang];
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-emerald-50 to-white dark:from-gray-900 dark:to-gray-800">
+    <div className="min-h-screen bg-gradient-to-b from-orange-50 to-white dark:from-gray-900 dark:to-gray-800">
       {/* Header */}
-      <header className="bg-gradient-to-r from-emerald-700 via-emerald-600 to-teal-600 text-white">
+      <header className="bg-gradient-to-r from-orange-700 via-orange-600 to-amber-600 text-white">
         <div className="h-1.5 bg-gradient-to-r from-yellow-400 via-red-500 to-yellow-400"></div>
         <div className="max-w-6xl mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
             <Link href="/" className="flex items-center gap-2">
-              <span className="text-2xl">🦅</span>
+              <HornbillLogo size="md" className="text-white" />
               <span className="text-xl font-bold">Sarawak News</span>
             </Link>
-            <Link href="/" className="text-emerald-100 hover:text-white text-sm">
+            <Link href="/" className="text-orange-100 hover:text-white text-sm">
               ← Back to News
             </Link>
           </div>
@@ -39,7 +40,7 @@ export default function FeaturesPage() {
         </div>
 
         {/* Features Card */}
-        <div className="bg-gradient-to-br from-emerald-500 to-teal-600 rounded-2xl shadow-xl p-8 text-white max-w-lg mx-auto mb-8">
+        <div className="bg-gradient-to-br from-orange-500 to-amber-600 rounded-2xl shadow-xl p-8 text-white max-w-lg mx-auto mb-8">
           <div className="text-center mb-6">
             <div className="inline-block px-4 py-1 bg-yellow-400 text-yellow-900 text-sm font-bold rounded-full mb-4">
               {t.free || 'FREE'}
@@ -47,7 +48,7 @@ export default function FeaturesPage() {
             <h2 className="text-2xl font-bold">{t.allFeatures || 'All Features'}</h2>
             <div className="mt-4">
               <span className="text-4xl font-bold">RM 0</span>
-              <span className="text-emerald-100">/forever</span>
+              <span className="text-orange-100">/forever</span>
             </div>
           </div>
 
@@ -84,7 +85,7 @@ export default function FeaturesPage() {
 
           <Link
             href="/"
-            className="w-full block py-3 px-6 rounded-xl bg-white text-emerald-600 font-bold hover:bg-emerald-50 transition-colors shadow-lg text-center"
+            className="w-full block py-3 px-6 rounded-xl bg-white text-orange-600 font-bold hover:bg-orange-50 transition-colors shadow-lg text-center"
           >
             {t.startReading || 'Start Reading'}
           </Link>

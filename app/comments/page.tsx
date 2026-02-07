@@ -65,14 +65,14 @@ export default function CommentsPage() {
   }
 
   return (
-    <div className={`min-h-screen ${isDark ? 'bg-gray-900 text-white' : 'bg-gradient-to-b from-emerald-50 to-white'}`}>
-      <header className="bg-gradient-to-r from-emerald-700 to-teal-600 text-white shadow-lg">
+    <div className={`min-h-screen ${isDark ? 'bg-gray-900 text-white' : 'bg-gradient-to-b from-orange-50 to-white'}`}>
+      <header className="bg-gradient-to-r from-orange-700 to-amber-600 text-white shadow-lg">
         <div className="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
           <div>
             <h1 className="text-xl font-bold">{t.myComments || 'My Comments'}</h1>
-            <p className="text-sm text-emerald-100">{total} {t.totalCommentsMade || 'comments made'}</p>
+            <p className="text-sm text-orange-100">{total} {t.totalCommentsMade || 'comments made'}</p>
           </div>
-          <Link href="/" className="text-emerald-100 hover:text-white">
+          <Link href="/" className="text-orange-100 hover:text-white">
             {t.backToNews}
           </Link>
         </div>
@@ -83,7 +83,7 @@ export default function CommentsPage() {
           <div className={`p-8 rounded-xl text-center ${isDark ? 'bg-gray-800' : 'bg-white'} shadow-sm`}>
             <span className="text-4xl mb-4 block">💬</span>
             <p className={isDark ? 'text-gray-400' : 'text-gray-500'}>{t.noCommentsYet || 'You haven\'t made any comments yet'}</p>
-            <Link href="/" className="text-emerald-600 hover:underline mt-4 inline-block">
+            <Link href="/" className="text-orange-600 hover:underline mt-4 inline-block">
               {t.backToNews}
             </Link>
           </div>
@@ -100,7 +100,7 @@ export default function CommentsPage() {
                   {/* News title link */}
                   <Link
                     href={`/news/${comment.news_id}`}
-                    className={`text-sm font-medium text-emerald-600 hover:text-emerald-700 hover:underline block mb-2`}
+                    className={`text-sm font-medium text-orange-600 hover:text-orange-700 hover:underline block mb-2`}
                   >
                     {comment.news_title}
                   </Link>
@@ -119,7 +119,7 @@ export default function CommentsPage() {
                     </span>
                     <Link
                       href={`/news/${comment.news_id}`}
-                      className="text-emerald-600 hover:underline"
+                      className="text-orange-600 hover:underline"
                     >
                       {t.viewDiscussion || 'View discussion'}
                     </Link>
@@ -139,7 +139,7 @@ export default function CommentsPage() {
                       ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
                       : isDark
                         ? 'bg-gray-700 text-white hover:bg-gray-600'
-                        : 'bg-emerald-600 text-white hover:bg-emerald-700'
+                        : 'bg-orange-600 text-white hover:bg-orange-700'
                   }`}
                 >
                   {t.previous}
@@ -155,7 +155,7 @@ export default function CommentsPage() {
                       ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
                       : isDark
                         ? 'bg-gray-700 text-white hover:bg-gray-600'
-                        : 'bg-emerald-600 text-white hover:bg-emerald-700'
+                        : 'bg-orange-600 text-white hover:bg-orange-700'
                   }`}
                 >
                   {t.next}

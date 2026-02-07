@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import HornbillLogo from '@/components/HornbillLogo';
 import { useLanguage } from '@/components/LanguageProvider';
 import { useTheme } from '@/components/ThemeProvider';
 import { translations } from '@/lib/i18n';
@@ -11,17 +12,17 @@ export default function TermsPage() {
   const t = translations[lang];
 
   return (
-    <div className={`min-h-screen ${isDark ? 'bg-gray-900' : 'bg-gradient-to-b from-emerald-50 to-white'}`}>
+    <div className={`min-h-screen ${isDark ? 'bg-gray-900' : 'bg-gradient-to-b from-orange-50 to-white'}`}>
       {/* Header */}
-      <header className="bg-gradient-to-r from-emerald-700 via-emerald-600 to-teal-600 text-white">
+      <header className="bg-gradient-to-r from-orange-700 via-orange-600 to-amber-600 text-white">
         <div className="h-1.5 bg-gradient-to-r from-yellow-400 via-red-500 to-yellow-400"></div>
         <div className="max-w-6xl mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
             <Link href="/" className="flex items-center gap-2">
-              <span className="text-2xl">🦅</span>
+              <HornbillLogo size="md" className="text-white" />
               <span className="text-xl font-bold">{t.title}</span>
             </Link>
-            <Link href="/" className="text-emerald-100 hover:text-white text-sm">
+            <Link href="/" className="text-orange-100 hover:text-white text-sm">
               ← {t.backToNews}
             </Link>
           </div>
@@ -133,7 +134,7 @@ export default function TermsPage() {
               12. Contact
             </h2>
             <p className={`${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
-              If you have questions about these Terms of Service, please contact us through our <Link href="/ai-features" className="text-emerald-600 hover:underline">feedback form</Link>.
+              If you have questions about these Terms of Service, please contact us through our <Link href="/ai-features" className="text-orange-600 hover:underline">feedback form</Link>.
             </p>
           </section>
         </div>
@@ -142,9 +143,9 @@ export default function TermsPage() {
       {/* Footer */}
       <footer className={`py-8 text-center ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>
         <div className="flex items-center justify-center gap-4 text-sm">
-          <Link href="/about" className="hover:text-emerald-600">About</Link>
+          <Link href="/about" className="hover:text-orange-600">About</Link>
           <span>|</span>
-          <Link href="/privacy" className="hover:text-emerald-600">Privacy Policy</Link>
+          <Link href="/privacy" className="hover:text-orange-600">Privacy Policy</Link>
         </div>
       </footer>
     </div>

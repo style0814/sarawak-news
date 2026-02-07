@@ -2,6 +2,7 @@
 
 import { Language, translations } from '@/lib/i18n';
 import NewsItem from './NewsItem';
+import HornbillLogo from './HornbillLogo';
 
 interface NewsData {
   id: number;
@@ -31,7 +32,7 @@ export default function NewsList({ news, lang, loading, onItemClick, onDiscussCl
   if (loading) {
     return (
       <div className="py-16 text-center">
-        <div className="inline-flex items-center gap-3 text-emerald-600">
+        <div className="inline-flex items-center gap-3 text-orange-600">
           <svg className="animate-spin h-6 w-6" viewBox="0 0 24 24">
             <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
             <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
@@ -45,8 +46,8 @@ export default function NewsList({ news, lang, loading, onItemClick, onDiscussCl
   if (news.length === 0) {
     return (
       <div className="py-16 text-center">
-        <div className="w-20 h-20 mx-auto mb-4 bg-emerald-100 rounded-full flex items-center justify-center">
-          <span className="text-4xl">🦅</span>
+        <div className="w-20 h-20 mx-auto mb-4 bg-orange-100 rounded-full flex items-center justify-center">
+          <HornbillLogo size="xl" className="text-orange-400" />
         </div>
         <p className="text-gray-500 text-lg max-w-md mx-auto">{t.noNews}</p>
       </div>

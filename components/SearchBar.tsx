@@ -107,7 +107,7 @@ export default function SearchBar({ lang, onSearch, onClear }: SearchBarProps) {
             onChange={(e) => setQuery(e.target.value)}
             onFocus={() => suggestions.length > 0 && setShowSuggestions(true)}
             placeholder={t.searchPlaceholder || 'Search news...'}
-            className={`w-full px-4 py-2 pl-10 border rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 text-sm ${
+            className={`w-full px-4 py-2 pl-10 border rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 text-sm ${
               isDark
                 ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400'
                 : 'bg-white border-gray-200 text-gray-800'
@@ -119,7 +119,7 @@ export default function SearchBar({ lang, onSearch, onClear }: SearchBarProps) {
         </div>
         <button
           type="submit"
-          className="px-4 py-2 bg-emerald-500 text-white rounded-lg hover:bg-emerald-600 transition-colors text-sm font-medium"
+          className="px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors text-sm font-medium"
         >
           {t.search || 'Search'}
         </button>
@@ -146,13 +146,13 @@ export default function SearchBar({ lang, onSearch, onClear }: SearchBarProps) {
               className={`w-full text-left px-4 py-3 flex flex-col gap-1 border-b last:border-b-0 transition-colors ${
                 isDark
                   ? 'border-gray-700 hover:bg-gray-700'
-                  : 'border-gray-100 hover:bg-emerald-50'
+                  : 'border-gray-100 hover:bg-orange-50'
               }`}
             >
               <span className={`text-sm font-medium line-clamp-1 ${isDark ? 'text-white' : 'text-gray-800'}`}>
                 {getTitle(item)}
               </span>
-              <span className="text-xs text-emerald-600">{item.source_name}</span>
+              <span className="text-xs text-orange-600">{item.source_name}</span>
             </button>
           ))}
         </div>

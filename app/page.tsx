@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import Header from '@/components/Header';
 import NewsList from '@/components/NewsList';
 import Pagination from '@/components/Pagination';
@@ -10,6 +11,7 @@ import CategoryFilter from '@/components/CategoryFilter';
 import ListenAllPlayer from '@/components/ListenAllPlayer';
 import AdBanner from '@/components/AdBanner';
 import { translations } from '@/lib/i18n';
+import HornbillLogo from '@/components/HornbillLogo';
 import { useTheme } from '@/components/ThemeProvider';
 import { useLanguage } from '@/components/LanguageProvider';
 
@@ -230,7 +232,7 @@ export default function Home() {
   };
 
   return (
-    <div className={`min-h-screen transition-colors ${isDark ? 'bg-gray-900' : 'bg-gradient-to-b from-emerald-50 to-white'}`}>
+    <div className={`min-h-screen transition-colors ${isDark ? 'bg-gray-900' : 'bg-gradient-to-b from-orange-50 to-white'}`}>
       <Header
         lang={lang}
         onLanguageChange={setLanguage}
@@ -244,10 +246,10 @@ export default function Home() {
             {/* Live indicator */}
             <div className="flex items-center gap-2">
               <span className={`relative flex h-3 w-3 ${isRefreshing ? '' : ''}`}>
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                <span className={`relative inline-flex rounded-full h-3 w-3 ${isRefreshing ? 'bg-yellow-500' : 'bg-emerald-500'}`}></span>
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-orange-400 opacity-75"></span>
+                <span className={`relative inline-flex rounded-full h-3 w-3 ${isRefreshing ? 'bg-yellow-500' : 'bg-orange-500'}`}></span>
               </span>
-              <span className={`text-sm font-medium ${isDark ? 'text-emerald-400' : 'text-emerald-600'}`}>
+              <span className={`text-sm font-medium ${isDark ? 'text-orange-400' : 'text-orange-600'}`}>
                 {isRefreshing ? 'Updating...' : 'LIVE'}
               </span>
             </div>
@@ -263,7 +265,7 @@ export default function Home() {
           {/* Next refresh countdown */}
           <div className={`flex items-center gap-2 text-xs ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
             <span>⏱️</span>
-            <span>Next update in: <strong className={isDark ? 'text-emerald-400' : 'text-emerald-600'}>{formatCountdown(nextRefreshIn)}</strong></span>
+            <span>Next update in: <strong className={isDark ? 'text-orange-400' : 'text-orange-600'}>{formatCountdown(nextRefreshIn)}</strong></span>
           </div>
         </div>
 
@@ -315,10 +317,17 @@ export default function Home() {
 
       <footer className="max-w-6xl mx-auto px-4 py-6 sm:py-8 text-center">
         <div className={`flex flex-col sm:flex-row items-center justify-center gap-2 text-xs sm:text-sm ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>
-          <span className="text-xl sm:text-2xl">🦅</span>
+          <HornbillLogo size="md" className="text-orange-400" />
           <span>Sarawak News Aggregator</span>
           <span className={`hidden sm:inline ${isDark ? 'text-gray-600' : 'text-gray-300'}`}>|</span>
           <span>Bumi Kenyalang</span>
+        </div>
+        <div className={`flex items-center justify-center gap-4 mt-4 text-xs ${isDark ? 'text-gray-600' : 'text-gray-400'}`}>
+          <Link href="/about" className="hover:text-orange-600">About</Link>
+          <span>|</span>
+          <Link href="/privacy" className="hover:text-orange-600">Privacy</Link>
+          <span>|</span>
+          <Link href="/terms" className="hover:text-orange-600">Terms</Link>
         </div>
       </footer>
 

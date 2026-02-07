@@ -79,7 +79,7 @@ export default function PremiumFeature({
           ) : (
             <Link
               href="/auth/login?redirect=/pricing"
-              className="inline-block px-6 py-2 bg-gradient-to-r from-emerald-500 to-teal-500 text-white font-semibold rounded-full hover:from-emerald-600 hover:to-teal-600 transition-all shadow-md"
+              className="inline-block px-6 py-2 bg-gradient-to-r from-orange-500 to-amber-500 text-white font-semibold rounded-full hover:from-orange-600 hover:to-amber-600 transition-all shadow-md"
             >
               {t.loginToUpgrade || 'Login to Upgrade'}
             </Link>

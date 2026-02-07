@@ -43,11 +43,11 @@ function CommentItem({
   const maxDepth = 4;
 
   return (
-    <div className={`${depth > 0 ? 'ml-4 sm:ml-6 pl-3 sm:pl-4 border-l-2 border-emerald-100' : ''}`}>
+    <div className={`${depth > 0 ? 'ml-4 sm:ml-6 pl-3 sm:pl-4 border-l-2 border-orange-100' : ''}`}>
       <div className="py-3">
         {/* Comment Header */}
         <div className="flex items-center gap-2 mb-2 flex-wrap">
-          <div className="w-7 h-7 sm:w-8 sm:h-8 bg-gradient-to-br from-emerald-400 to-teal-500 rounded-full flex items-center justify-center text-white text-xs sm:text-sm font-bold flex-shrink-0">
+          <div className="w-7 h-7 sm:w-8 sm:h-8 bg-gradient-to-br from-orange-400 to-amber-500 rounded-full flex items-center justify-center text-white text-xs sm:text-sm font-bold flex-shrink-0">
             {comment.author?.display_name?.charAt(0).toUpperCase() || '?'}
           </div>
           <span className="font-semibold text-gray-800 text-sm sm:text-base">{comment.author?.display_name || 'Anonymous'}</span>
@@ -64,8 +64,8 @@ function CommentItem({
             className={`flex items-center gap-1 transition-colors ${
               isLoggedIn
                 ? comment.user_liked
-                  ? 'text-emerald-600'
-                  : 'text-gray-500 hover:text-emerald-600'
+                  ? 'text-orange-600'
+                  : 'text-gray-500 hover:text-orange-600'
                 : 'text-gray-400 cursor-default'
             }`}
             title={isLoggedIn ? '' : t.loginToLike}
@@ -77,7 +77,7 @@ function CommentItem({
           {depth < maxDepth && isLoggedIn && (
             <button
               onClick={() => onReply(comment.id)}
-              className="text-gray-500 hover:text-emerald-600 transition-colors"
+              className="text-gray-500 hover:text-orange-600 transition-colors"
             >
               {t.reply}
             </button>
@@ -212,7 +212,7 @@ export default function CommentSection({ newsId, lang }: CommentSectionProps) {
       {isLoggedIn ? (
         <form onSubmit={handleSubmit} className="mb-6 sm:mb-8">
           {replyingTo && (
-            <div className="mb-2 flex items-center gap-2 text-sm text-emerald-600">
+            <div className="mb-2 flex items-center gap-2 text-sm text-orange-600">
               <span>↳ {t.reply}...</span>
               <button
                 type="button"
@@ -235,14 +235,14 @@ export default function CommentSection({ newsId, lang }: CommentSectionProps) {
               value={content}
               onChange={(e) => setContent(e.target.value)}
               rows={2}
-              className="flex-1 px-3 sm:px-4 py-2 border border-gray-200 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent text-sm sm:text-base"
+              className="flex-1 px-3 sm:px-4 py-2 border border-gray-200 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent text-sm sm:text-base"
               required
               maxLength={2000}
             />
             <button
               type="submit"
               disabled={submitting || !content.trim()}
-              className="flex-shrink-0 px-4 sm:px-6 py-2 bg-gradient-to-r from-emerald-500 to-teal-600 text-white font-semibold rounded-lg hover:from-emerald-600 hover:to-teal-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all text-sm sm:text-base"
+              className="flex-shrink-0 px-4 sm:px-6 py-2 bg-gradient-to-r from-orange-500 to-amber-600 text-white font-semibold rounded-lg hover:from-orange-600 hover:to-amber-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all text-sm sm:text-base"
             >
               {submitting ? '...' : t.submit}
             </button>
@@ -253,7 +253,7 @@ export default function CommentSection({ newsId, lang }: CommentSectionProps) {
           <p className="text-gray-500 mb-2">{t.loginToComment}</p>
           <Link
             href="/auth/login"
-            className="inline-block px-4 py-2 bg-emerald-500 text-white rounded-lg hover:bg-emerald-600 transition-colors text-sm"
+            className="inline-block px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors text-sm"
           >
             {t.login}
           </Link>
