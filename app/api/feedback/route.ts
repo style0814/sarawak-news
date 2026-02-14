@@ -1,12 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
-import { saveFeedback } from '@/lib/db';
+import { saveFeedback, isUserBanned } from '@/lib/db';
 
 export async function POST(request: NextRequest) {
   try {
     const session = await auth();
     if (!session?.user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    // Check if user is banned
+    if (isUserBanned(Number(session.user.id))) {
+      return NextResponse.json({ error: 'Your account has been suspended' }, { status: 403 });
     }
 
     const body = await request.json();

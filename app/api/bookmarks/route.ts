@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
-import { toggleBookmark, getUserBookmarks, getUserById, getNewsById } from '@/lib/db';
+import { toggleBookmark, getUserBookmarks, getUserById, getNewsById, isUserBanned } from '@/lib/db';
 
 // Get user's bookmarks
 export async function GET() {
@@ -34,6 +34,11 @@ export async function POST(request: NextRequest) {
     const user = getUserById(userId);
     if (!user) {
       return NextResponse.json({ error: 'Session expired. Please login again.' }, { status: 401 });
+    }
+
+    // Check if user is banned
+    if (isUserBanned(userId)) {
+      return NextResponse.json({ error: 'Your account has been suspended' }, { status: 403 });
     }
 
     // Verify news exists

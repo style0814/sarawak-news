@@ -279,6 +279,286 @@ export function EngagementChart({ data }: { data: DailyStats[] }) {
   );
 }
 
+// ============ ANALYTICS CHARTS ============
+
+// Search volume area chart (30 days)
+interface SearchVolumeData {
+  date: string;
+  count: number;
+}
+
+export function SearchVolumeChart({ data }: { data: SearchVolumeData[] }) {
+  if (!data || data.length === 0) {
+    return (
+      <div className="h-64 w-full flex items-center justify-center text-gray-500">
+        No search data yet
+      </div>
+    );
+  }
+
+  const chartData = data.map(d => ({
+    ...d,
+    date: d.date.slice(5)
+  }));
+
+  return (
+    <div className="h-64 w-full">
+      <ResponsiveContainer width="100%" height="100%">
+        <AreaChart data={chartData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
+          <defs>
+            <linearGradient id="colorSearchVol" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="5%" stopColor={COLORS.info} stopOpacity={0.3}/>
+              <stop offset="95%" stopColor={COLORS.info} stopOpacity={0}/>
+            </linearGradient>
+          </defs>
+          <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+          <XAxis dataKey="date" stroke="#9ca3af" fontSize={12} />
+          <YAxis stroke="#9ca3af" fontSize={12} />
+          <Tooltip
+            contentStyle={{
+              backgroundColor: '#1f2937',
+              border: '1px solid #374151',
+              borderRadius: '8px',
+              color: '#fff'
+            }}
+          />
+          <Area
+            type="monotone"
+            dataKey="count"
+            stroke={COLORS.info}
+            fillOpacity={1}
+            fill="url(#colorSearchVol)"
+            name="Searches"
+          />
+        </AreaChart>
+      </ResponsiveContainer>
+    </div>
+  );
+}
+
+// Source performance horizontal bar chart
+interface SourcePerformanceData {
+  source_name: string;
+  avg_clicks: number;
+  article_count: number;
+}
+
+export function SourcePerformanceChart({ data }: { data: SourcePerformanceData[] }) {
+  if (!data || data.length === 0) {
+    return (
+      <div className="h-64 w-full flex items-center justify-center text-gray-500">
+        No data available
+      </div>
+    );
+  }
+
+  return (
+    <div className="h-64 w-full">
+      <ResponsiveContainer width="100%" height="100%">
+        <BarChart data={data} layout="vertical" margin={{ top: 5, right: 30, left: 80, bottom: 5 }}>
+          <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+          <XAxis type="number" stroke="#9ca3af" fontSize={12} />
+          <YAxis dataKey="source_name" type="category" stroke="#9ca3af" fontSize={11} width={70} />
+          <Tooltip
+            contentStyle={{
+              backgroundColor: '#1f2937',
+              border: '1px solid #374151',
+              borderRadius: '8px',
+              color: '#fff'
+            }}
+          />
+          <Bar dataKey="avg_clicks" fill={COLORS.primary} name="Avg Clicks" radius={[0, 4, 4, 0]} />
+        </BarChart>
+      </ResponsiveContainer>
+    </div>
+  );
+}
+
+// Category engagement stacked bar chart
+interface CategoryEngagementData {
+  category: string;
+  total_clicks: number;
+  total_comments: number;
+}
+
+export function CategoryEngagementChart({ data }: { data: CategoryEngagementData[] }) {
+  if (!data || data.length === 0) {
+    return (
+      <div className="h-64 w-full flex items-center justify-center text-gray-500">
+        No data available
+      </div>
+    );
+  }
+
+  return (
+    <div className="h-64 w-full">
+      <ResponsiveContainer width="100%" height="100%">
+        <BarChart data={data} margin={{ top: 5, right: 30, left: 0, bottom: 5 }}>
+          <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+          <XAxis dataKey="category" stroke="#9ca3af" fontSize={11} angle={-30} textAnchor="end" height={60} />
+          <YAxis stroke="#9ca3af" fontSize={12} />
+          <Tooltip
+            contentStyle={{
+              backgroundColor: '#1f2937',
+              border: '1px solid #374151',
+              borderRadius: '8px',
+              color: '#fff'
+            }}
+          />
+          <Legend />
+          <Bar dataKey="total_clicks" stackId="a" fill={COLORS.primary} name="Clicks" />
+          <Bar dataKey="total_comments" stackId="a" fill={COLORS.tertiary} name="Comments" />
+        </BarChart>
+      </ResponsiveContainer>
+    </div>
+  );
+}
+
+// Peak activity hours bar chart
+interface PeakHoursData {
+  hour: number;
+  activity_count: number;
+}
+
+export function PeakHoursChart({ data }: { data: PeakHoursData[] }) {
+  if (!data || data.length === 0) {
+    return (
+      <div className="h-64 w-full flex items-center justify-center text-gray-500">
+        No activity data yet
+      </div>
+    );
+  }
+
+  // Fill in missing hours
+  const fullData = Array.from({ length: 24 }, (_, i) => {
+    const existing = data.find(d => d.hour === i);
+    return { hour: `${i}:00`, activity_count: existing?.activity_count || 0 };
+  });
+
+  return (
+    <div className="h-64 w-full">
+      <ResponsiveContainer width="100%" height="100%">
+        <BarChart data={fullData} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
+          <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+          <XAxis dataKey="hour" stroke="#9ca3af" fontSize={10} interval={2} />
+          <YAxis stroke="#9ca3af" fontSize={12} />
+          <Tooltip
+            contentStyle={{
+              backgroundColor: '#1f2937',
+              border: '1px solid #374151',
+              borderRadius: '8px',
+              color: '#fff'
+            }}
+          />
+          <Bar dataKey="activity_count" fill={COLORS.secondary} name="Activity" radius={[4, 4, 0, 0]} />
+        </BarChart>
+      </ResponsiveContainer>
+    </div>
+  );
+}
+
+// User growth line chart (30 days)
+interface UserGrowthData {
+  date: string;
+  new_users: number;
+}
+
+export function UserGrowthChart({ data }: { data: UserGrowthData[] }) {
+  if (!data || data.length === 0) {
+    return (
+      <div className="h-64 w-full flex items-center justify-center text-gray-500">
+        No user data yet
+      </div>
+    );
+  }
+
+  const chartData = data.map(d => ({
+    ...d,
+    date: d.date.slice(5)
+  }));
+
+  return (
+    <div className="h-64 w-full">
+      <ResponsiveContainer width="100%" height="100%">
+        <LineChart data={chartData} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
+          <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+          <XAxis dataKey="date" stroke="#9ca3af" fontSize={12} />
+          <YAxis stroke="#9ca3af" fontSize={12} />
+          <Tooltip
+            contentStyle={{
+              backgroundColor: '#1f2937',
+              border: '1px solid #374151',
+              borderRadius: '8px',
+              color: '#fff'
+            }}
+          />
+          <Line
+            type="monotone"
+            dataKey="new_users"
+            stroke={COLORS.secondary}
+            strokeWidth={3}
+            dot={{ fill: COLORS.secondary, r: 4 }}
+            name="New Users"
+          />
+        </LineChart>
+      </ResponsiveContainer>
+    </div>
+  );
+}
+
+// Translation coverage pie chart
+interface TranslationCoverageData {
+  translated: number;
+  untranslated: number;
+}
+
+export function TranslationCoverageChart({ data }: { data: TranslationCoverageData }) {
+  const chartData = [
+    { name: 'Translated', value: data.translated },
+    { name: 'Untranslated', value: data.untranslated }
+  ];
+
+  if (data.translated === 0 && data.untranslated === 0) {
+    return (
+      <div className="h-64 w-full flex items-center justify-center text-gray-500">
+        No data available
+      </div>
+    );
+  }
+
+  return (
+    <div className="h-64 w-full">
+      <ResponsiveContainer width="100%" height="100%">
+        <PieChart>
+          <Pie
+            data={chartData}
+            cx="50%"
+            cy="50%"
+            innerRadius={50}
+            outerRadius={80}
+            fill="#8884d8"
+            dataKey="value"
+            label={({ name, percent }: { name?: string; percent?: number }) =>
+              `${name || ''} ${((percent || 0) * 100).toFixed(0)}%`
+            }
+          >
+            <Cell fill={COLORS.primary} />
+            <Cell fill="#4b5563" />
+          </Pie>
+          <Tooltip
+            contentStyle={{
+              backgroundColor: '#1f2937',
+              border: '1px solid #374151',
+              borderRadius: '8px',
+              color: '#fff'
+            }}
+          />
+        </PieChart>
+      </ResponsiveContainer>
+    </div>
+  );
+}
+
 // Overview stats cards
 interface OverviewStatsProps {
   totalNews: number;

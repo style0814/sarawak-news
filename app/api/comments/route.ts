@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { addComment, getCommentsByNewsId, getUserById, getNewsById } from '@/lib/db';
+import { addComment, getCommentsByNewsId, getUserById, getNewsById, isUserBanned, checkCommentRateLimit, checkBannedWords, flagComment } from '@/lib/db';
 import { auth } from '@/lib/auth';
 import { logApiError, logAuthError } from '@/lib/errorLogger';
 
@@ -85,6 +85,22 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Check if user is banned
+    if (isUserBanned(userId)) {
+      return NextResponse.json(
+        { error: 'Your account has been suspended' },
+        { status: 403 }
+      );
+    }
+
+    // Check rate limit
+    if (checkCommentRateLimit(userId)) {
+      return NextResponse.json(
+        { error: 'You are commenting too frequently. Please wait before trying again.' },
+        { status: 429 }
+      );
+    }
+
     // Verify news exists
     const newsItem = getNewsById(parseInt(news_id, 10));
     if (!newsItem) {
@@ -100,6 +116,12 @@ export async function POST(request: NextRequest) {
       parent_id: parent_id ? parseInt(parent_id, 10) : null,
       content: sanitize(trimmedContent)
     });
+
+    // Auto-flag if banned words detected
+    const bannedCheck = checkBannedWords(trimmedContent);
+    if (bannedCheck.flagged) {
+      flagComment(comment.id, `Auto-flagged: contains banned word "${bannedCheck.matchedWord}"`);
+    }
 
     return NextResponse.json({ comment });
   } catch (error) {

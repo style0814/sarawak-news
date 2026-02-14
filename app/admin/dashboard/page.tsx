@@ -17,13 +17,20 @@ import {
   SourcesChart,
   CategoriesChart,
   EngagementChart,
-  OverviewStatsCards
+  OverviewStatsCards,
+  SearchVolumeChart,
+  SourcePerformanceChart,
+  CategoryEngagementChart,
+  PeakHoursChart,
+  UserGrowthChart,
+  TranslationCoverageChart
 } from '@/components/charts/DashboardCharts';
 
 interface Stats {
   totalNews: number;
   totalUsers: number;
   totalComments: number;
+  bannedUsers: number;
 }
 
 interface DailyStats {
@@ -39,6 +46,9 @@ interface User {
   email: string;
   display_name: string;
   is_admin: number;
+  is_banned: number;
+  banned_reason: string | null;
+  banned_at: string | null;
   created_at: string;
 }
 
@@ -125,7 +135,7 @@ interface RssFeed {
   created_at: string;
 }
 
-type Tab = 'dashboard' | 'users' | 'news' | 'comments' | 'errors' | 'feeds' | 'payments';
+type Tab = 'dashboard' | 'analytics' | 'users' | 'news' | 'comments' | 'errors' | 'feeds' | 'payments' | 'audit';
 
 interface PaymentSubmission {
   id: number;
@@ -227,6 +237,28 @@ export default function AdminDashboard() {
   const [subscriptionStats, setSubscriptionStats] = useState<SubscriptionStats | null>(null);
   const [pendingPaymentsCount, setPendingPaymentsCount] = useState(0);
 
+  // Analytics state
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [analyticsData, setAnalyticsData] = useState<any>(null);
+  const [analyticsLoading, setAnalyticsLoading] = useState(false);
+
+  // Audit log state
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [auditLogs, setAuditLogs] = useState<any[]>([]);
+  const [auditPage, setAuditPage] = useState(1);
+  const [auditTotalPages, setAuditTotalPages] = useState(1);
+  const [auditActionFilter, setAuditActionFilter] = useState('all');
+  const [auditActions, setAuditActions] = useState<string[]>([]);
+
+  // Feed health state
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [feedHealth, setFeedHealth] = useState<any>(null);
+
+  // Moderation config state
+  const [bannedWords, setBannedWords] = useState('');
+  const [commentRateLimit, setCommentRateLimit] = useState('10');
+  const [moderationConfigLoaded, setModerationConfigLoaded] = useState(false);
+
   const t = translations[lang];
 
   // Check authentication on mount
@@ -270,6 +302,7 @@ export default function AdminDashboard() {
       setTopSources(data.topSources || []);
       setCategoryStats(data.categoryStats || []);
       setUntranslatedCount(data.untranslatedCount || 0);
+      setFeedHealth(data.feedHealth || null);
     } catch {
       console.error('Failed to load dashboard');
     } finally {
@@ -385,6 +418,51 @@ export default function AdminDashboard() {
       setPendingPaymentsCount(data.stats?.pendingPayments || 0);
     } catch {
       console.error('Failed to load payments');
+    }
+  }, []);
+
+  const fetchAnalytics = useCallback(async () => {
+    setAnalyticsLoading(true);
+    try {
+      const response = await fetch('/api/admin?tab=analytics');
+      if (!response.ok) throw new Error('Failed to fetch');
+      const data = await response.json();
+      setAnalyticsData(data);
+    } catch {
+      console.error('Failed to load analytics');
+    } finally {
+      setAnalyticsLoading(false);
+    }
+  }, []);
+
+  const fetchAuditLogs = useCallback(async (page: number = 1) => {
+    try {
+      const params = new URLSearchParams({
+        tab: 'audit',
+        page: String(page),
+        ...(auditActionFilter !== 'all' && { action: auditActionFilter })
+      });
+      const response = await fetch(`/api/admin?${params}`);
+      if (!response.ok) throw new Error('Failed to fetch');
+      const data = await response.json();
+      setAuditLogs(data.logs || []);
+      setAuditTotalPages(data.totalPages || 1);
+      setAuditActions(data.actions || []);
+    } catch {
+      console.error('Failed to load audit logs');
+    }
+  }, [auditActionFilter]);
+
+  const fetchModerationConfig = useCallback(async () => {
+    try {
+      const response = await fetch('/api/admin?tab=moderation-config');
+      if (!response.ok) throw new Error('Failed to fetch');
+      const data = await response.json();
+      setBannedWords(data.bannedWords || '');
+      setCommentRateLimit(data.commentRateLimit || '10');
+      setModerationConfigLoaded(true);
+    } catch {
+      console.error('Failed to load moderation config');
     }
   }, []);
 
@@ -524,12 +602,14 @@ export default function AdminDashboard() {
       if (activeTab === 'dashboard') fetchDashboard();
       else if (activeTab === 'users') fetchUsers();
       else if (activeTab === 'news') fetchNews(newsPage);
-      else if (activeTab === 'comments') fetchComments(commentsPage, commentFilter);
+      else if (activeTab === 'comments') { fetchComments(commentsPage, commentFilter); if (!moderationConfigLoaded) fetchModerationConfig(); }
       else if (activeTab === 'errors') fetchErrors(errorsPage);
       else if (activeTab === 'feeds') fetchFeeds();
       else if (activeTab === 'payments') fetchPayments(paymentsPage, paymentFilter);
+      else if (activeTab === 'analytics') fetchAnalytics();
+      else if (activeTab === 'audit') fetchAuditLogs(auditPage);
     }
-  }, [authChecked, activeTab, fetchDashboard, fetchUsers, fetchNews, fetchComments, fetchErrors, fetchFeeds, fetchPayments, newsPage, commentsPage, commentFilter, errorsPage, paymentsPage, paymentFilter]);
+  }, [authChecked, activeTab, fetchDashboard, fetchUsers, fetchNews, fetchComments, fetchErrors, fetchFeeds, fetchPayments, fetchAnalytics, fetchAuditLogs, fetchModerationConfig, newsPage, commentsPage, commentFilter, errorsPage, paymentsPage, paymentFilter, auditPage, moderationConfigLoaded]);
 
   // Poll for new errors every 30 seconds when on errors tab
   useEffect(() => {
@@ -801,6 +881,77 @@ export default function AdminDashboard() {
     setPaymentsPage(1);
   };
 
+  const handleBanUser = async (userId: number) => {
+    const reason = prompt('Reason for ban (optional):');
+    if (reason === null) return; // cancelled
+    try {
+      const response = await fetch('/api/admin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'banUser', userId, reason: reason || 'Banned by admin' })
+      });
+      if (response.ok) {
+        fetchUsers();
+      } else {
+        const data = await response.json();
+        alert(data.error || 'Failed to ban user');
+      }
+    } catch {
+      alert('Failed to ban user');
+    }
+  };
+
+  const handleUnbanUser = async (userId: number) => {
+    if (!confirm('Unban this user?')) return;
+    try {
+      const response = await fetch('/api/admin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'unbanUser', userId })
+      });
+      if (response.ok) {
+        fetchUsers();
+      }
+    } catch {
+      alert('Failed to unban user');
+    }
+  };
+
+  const handleSaveBannedWords = async () => {
+    try {
+      const response = await fetch('/api/admin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'updateBannedWords', words: bannedWords })
+      });
+      if (response.ok) {
+        alert('Banned words updated');
+      }
+    } catch {
+      alert('Failed to save');
+    }
+  };
+
+  const handleSaveRateLimit = async () => {
+    try {
+      const response = await fetch('/api/admin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'updateRateLimit', limit: parseInt(commentRateLimit) })
+      });
+      if (response.ok) {
+        alert('Rate limit updated');
+      }
+    } catch {
+      alert('Failed to save');
+    }
+  };
+
+  const handleAuditFilterChange = () => {
+    setAuditPage(1);
+    fetchAuditLogs(1);
+  };
+
   if (!authChecked) {
     return (
       <div className="min-h-screen bg-gray-900 flex items-center justify-center">
@@ -811,12 +962,14 @@ export default function AdminDashboard() {
 
   const tabs: { key: Tab; label: string; badge?: number }[] = [
     { key: 'dashboard', label: t.dashboard },
+    { key: 'analytics', label: 'Analytics' },
     { key: 'users', label: t.users },
     { key: 'news', label: t.news },
     { key: 'comments', label: t.comments },
     { key: 'payments', label: t.payments || 'Payments', badge: pendingPaymentsCount > 0 ? pendingPaymentsCount : undefined },
     { key: 'errors', label: 'Errors', badge: unresolvedCount > 0 ? unresolvedCount : undefined },
-    { key: 'feeds', label: t.rssFeeds || 'RSS Feeds' }
+    { key: 'feeds', label: t.rssFeeds || 'RSS Feeds' },
+    { key: 'audit', label: 'Audit Log' }
   ];
 
   return (
@@ -890,6 +1043,41 @@ export default function AdminDashboard() {
                   todayNews={dailyStats[0]?.news_count}
                   weeklyGrowth={dailyStats.length >= 2 ? Math.round(((dailyStats[0]?.news_count || 0) - (dailyStats[dailyStats.length - 1]?.news_count || 0)) / Math.max(1, dailyStats[dailyStats.length - 1]?.news_count || 1) * 100) : undefined}
                 />
+
+                {/* Feed Health Warning */}
+                {feedHealth && !feedHealth.healthy && (
+                  <div className="p-4 rounded-xl bg-red-900/20 border border-red-700/50">
+                    <h3 className="font-bold text-red-400 mb-3">Feed Health Warning</h3>
+                    {feedHealth.staleFeeds?.length > 0 && (
+                      <div className="mb-2">
+                        <p className="text-sm text-yellow-400 font-medium">Stale Feeds (no data in 24+ hours):</p>
+                        <ul className="text-sm text-gray-400 list-disc list-inside mt-1">
+                          {feedHealth.staleFeeds.map((f: { id: number; name: string; hours_since_fetch: number }) => (
+                            <li key={f.id}>{f.name} — {f.hours_since_fetch}h since last fetch</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                    {feedHealth.errorFeeds?.length > 0 && (
+                      <div>
+                        <p className="text-sm text-red-400 font-medium">High Error Feeds (3+ consecutive errors):</p>
+                        <ul className="text-sm text-gray-400 list-disc list-inside mt-1">
+                          {feedHealth.errorFeeds.map((f: { id: number; name: string; error_count: number; last_error: string | null }) => (
+                            <li key={f.id}>{f.name} — {f.error_count} errors: {f.last_error}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Banned Users Indicator */}
+                {stats && stats.bannedUsers > 0 && (
+                  <div className="p-3 rounded-xl bg-red-900/20 border border-red-700/30 flex items-center gap-3">
+                    <span className="text-red-400 font-bold text-lg">{stats.bannedUsers}</span>
+                    <span className="text-sm text-red-300">banned user{stats.bannedUsers !== 1 ? 's' : ''}</span>
+                  </div>
+                )}
 
                 {/* RSS Refresh Card */}
                 <div className="p-6 rounded-xl bg-gray-800 border border-gray-700">
@@ -1175,6 +1363,7 @@ export default function AdminDashboard() {
                     <th className="text-left py-2 text-gray-400">{t.username}</th>
                     <th className="text-left py-2 text-gray-400">{t.email}</th>
                     <th className="text-left py-2 text-gray-400">{t.displayName}</th>
+                    <th className="text-left py-2 text-gray-400">{t.status || 'Status'}</th>
                     <th className="text-left py-2 text-gray-400">{t.admin}</th>
                     <th className="text-left py-2 text-gray-400">{t.actions}</th>
                   </tr>
@@ -1187,6 +1376,17 @@ export default function AdminDashboard() {
                       <td className="py-2 text-gray-400">{user.email}</td>
                       <td className="py-2">{user.display_name}</td>
                       <td className="py-2">
+                        {user.is_banned ? (
+                          <span className="px-2 py-1 rounded text-xs bg-red-500/20 text-red-400" title={user.banned_reason || ''}>
+                            Banned
+                          </span>
+                        ) : (
+                          <span className="px-2 py-1 rounded text-xs bg-green-500/20 text-green-400">
+                            Active
+                          </span>
+                        )}
+                      </td>
+                      <td className="py-2">
                         <span className={`px-2 py-1 rounded text-xs ${user.is_admin ? 'bg-orange-500/20 text-orange-400' : 'bg-gray-600 text-gray-300'}`}>
                           {user.is_admin ? 'Admin' : 'User'}
                         </span>
@@ -1195,6 +1395,15 @@ export default function AdminDashboard() {
                         <button onClick={() => handleToggleAdmin(user.id, !!user.is_admin)} className="text-blue-400 hover:text-blue-300 text-xs">
                           {user.is_admin ? t.removeAdmin : t.makeAdmin}
                         </button>
+                        {user.is_banned ? (
+                          <button onClick={() => handleUnbanUser(user.id)} className="text-green-400 hover:text-green-300 text-xs">
+                            Unban
+                          </button>
+                        ) : (
+                          <button onClick={() => handleBanUser(user.id)} className="text-yellow-400 hover:text-yellow-300 text-xs">
+                            Ban
+                          </button>
+                        )}
                         <button onClick={() => handleDeleteUser(user.id)} className="text-red-400 hover:text-red-300 text-xs">
                           {t.delete}
                         </button>
@@ -1392,6 +1601,47 @@ export default function AdminDashboard() {
                     </span>
                   )}
                 </button>
+              </div>
+            </div>
+
+            {/* Auto-Moderation Settings */}
+            <div className="p-6 rounded-xl bg-gray-800 border border-gray-700">
+              <h3 className="font-bold mb-4">Auto-Moderation Settings</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <label className="block text-sm text-gray-400 mb-2">Banned Words (comma-separated)</label>
+                  <textarea
+                    value={bannedWords}
+                    onChange={(e) => setBannedWords(e.target.value)}
+                    placeholder="word1, word2, word3..."
+                    rows={3}
+                    className="w-full px-3 py-2 rounded bg-gray-700 border border-gray-600 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
+                  />
+                  <button
+                    onClick={handleSaveBannedWords}
+                    className="mt-2 px-4 py-2 bg-orange-600 text-white rounded text-sm hover:bg-orange-700"
+                  >
+                    Save Words
+                  </button>
+                  <p className="text-xs text-gray-500 mt-1">Comments containing these words will be auto-flagged</p>
+                </div>
+                <div>
+                  <label className="block text-sm text-gray-400 mb-2">Comment Rate Limit (per hour)</label>
+                  <input
+                    type="number"
+                    value={commentRateLimit}
+                    onChange={(e) => setCommentRateLimit(e.target.value)}
+                    min="1"
+                    className="w-24 px-3 py-2 rounded bg-gray-700 border border-gray-600 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
+                  />
+                  <button
+                    onClick={handleSaveRateLimit}
+                    className="ml-2 px-4 py-2 bg-orange-600 text-white rounded text-sm hover:bg-orange-700"
+                  >
+                    Save Limit
+                  </button>
+                  <p className="text-xs text-gray-500 mt-1">Max comments a user can post per hour</p>
+                </div>
               </div>
             </div>
 
@@ -2043,6 +2293,309 @@ export default function AdminDashboard() {
 
               {payments.length === 0 && (
                 <p className="text-center py-4 text-gray-500">{t.noPayments || 'No payments found'}</p>
+              )}
+            </div>
+          </div>
+        )}
+        {/* Analytics Tab */}
+        {activeTab === 'analytics' && (
+          <div className="space-y-6">
+            {analyticsLoading ? (
+              <div className="flex justify-center py-12">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500"></div>
+              </div>
+            ) : analyticsData ? (
+              <>
+                {/* User Engagement Cards */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="p-5 rounded-xl bg-gradient-to-br from-blue-500/10 to-blue-600/5 border border-blue-500/20">
+                    <h3 className="text-sm text-gray-400">Daily Active Users</h3>
+                    <p className="text-3xl font-bold text-blue-400">{analyticsData.userEngagement?.dau || 0}</p>
+                  </div>
+                  <div className="p-5 rounded-xl bg-gradient-to-br from-purple-500/10 to-purple-600/5 border border-purple-500/20">
+                    <h3 className="text-sm text-gray-400">Weekly Active Users</h3>
+                    <p className="text-3xl font-bold text-purple-400">{analyticsData.userEngagement?.wau || 0}</p>
+                  </div>
+                  <div className="p-5 rounded-xl bg-gradient-to-br from-orange-500/10 to-orange-600/5 border border-orange-500/20">
+                    <h3 className="text-sm text-gray-400">Monthly Active Users</h3>
+                    <p className="text-3xl font-bold text-orange-400">{analyticsData.userEngagement?.mau || 0}</p>
+                  </div>
+                </div>
+
+                {/* Search Analytics */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  <div className="p-6 rounded-xl bg-gray-800 border border-gray-700">
+                    <h3 className="text-lg font-bold mb-4">Search Volume (30 days)</h3>
+                    <SearchVolumeChart data={analyticsData.searchAnalytics?.volumeOverTime || []} />
+                  </div>
+                  <div className="p-6 rounded-xl bg-gray-800 border border-gray-700">
+                    <h3 className="text-lg font-bold mb-4">Top Search Queries</h3>
+                    {analyticsData.searchAnalytics?.topQueries?.length > 0 ? (
+                      <div className="overflow-x-auto max-h-64 overflow-y-auto">
+                        <table className="w-full text-sm">
+                          <thead>
+                            <tr className="border-b border-gray-700">
+                              <th className="text-left py-2 text-gray-400">Query</th>
+                              <th className="text-right py-2 text-gray-400">Count</th>
+                              <th className="text-right py-2 text-gray-400">Avg Results</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {analyticsData.searchAnalytics.topQueries.map((q: { query: string; count: number; avg_results: number }, i: number) => (
+                              <tr key={i} className="border-b border-gray-700/50">
+                                <td className="py-2">{q.query}</td>
+                                <td className="py-2 text-right text-orange-400">{q.count}</td>
+                                <td className="py-2 text-right text-gray-400">{q.avg_results}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    ) : (
+                      <p className="text-gray-500">No search data yet</p>
+                    )}
+                  </div>
+                </div>
+
+                {/* Zero-Result Queries */}
+                {analyticsData.searchAnalytics?.zeroResultQueries?.length > 0 && (
+                  <div className="p-6 rounded-xl bg-gray-800 border border-yellow-700/50">
+                    <h3 className="text-lg font-bold mb-4 text-yellow-400">Zero-Result Queries</h3>
+                    <div className="flex flex-wrap gap-2">
+                      {analyticsData.searchAnalytics.zeroResultQueries.map((q: { query: string; count: number }, i: number) => (
+                        <span key={i} className="px-3 py-1 bg-yellow-500/10 border border-yellow-700/30 rounded-full text-sm text-yellow-300">
+                          {q.query} ({q.count})
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Source Performance & Category Engagement */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  <div className="p-6 rounded-xl bg-gray-800 border border-gray-700">
+                    <h3 className="text-lg font-bold mb-4">Source Performance (Avg Clicks)</h3>
+                    <SourcePerformanceChart data={analyticsData.sourcePerformance || []} />
+                  </div>
+                  <div className="p-6 rounded-xl bg-gray-800 border border-gray-700">
+                    <h3 className="text-lg font-bold mb-4">Category Engagement</h3>
+                    <CategoryEngagementChart data={analyticsData.categoryEngagement || []} />
+                  </div>
+                </div>
+
+                {/* Source Performance Table */}
+                <div className="p-6 rounded-xl bg-gray-800 border border-gray-700">
+                  <h3 className="text-lg font-bold mb-4">Source Performance Details</h3>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b border-gray-700">
+                          <th className="text-left py-2 text-gray-400">Source</th>
+                          <th className="text-right py-2 text-gray-400">Articles</th>
+                          <th className="text-right py-2 text-gray-400">Total Clicks</th>
+                          <th className="text-right py-2 text-gray-400">Avg Clicks</th>
+                          <th className="text-right py-2 text-gray-400">Comments</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {(analyticsData.sourcePerformance || []).map((s: { source_name: string; article_count: number; total_clicks: number; avg_clicks: number; total_comments: number }, i: number) => (
+                          <tr key={i} className="border-b border-gray-700/50">
+                            <td className="py-2 font-medium">{s.source_name}</td>
+                            <td className="py-2 text-right">{s.article_count}</td>
+                            <td className="py-2 text-right text-orange-400">{s.total_clicks}</td>
+                            <td className="py-2 text-right text-blue-400">{s.avg_clicks}</td>
+                            <td className="py-2 text-right text-purple-400">{s.total_comments}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                {/* Translation Coverage & Article Age */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  <div className="p-6 rounded-xl bg-gray-800 border border-gray-700">
+                    <h3 className="text-lg font-bold mb-4">Translation Coverage</h3>
+                    <TranslationCoverageChart
+                      data={{
+                        translated: analyticsData.translationStats?.both_translated || 0,
+                        untranslated: (analyticsData.translationStats?.total || 0) - (analyticsData.translationStats?.both_translated || 0)
+                      }}
+                    />
+                    <div className="mt-4 grid grid-cols-2 gap-4 text-sm">
+                      <div>
+                        <span className="text-gray-400">Chinese (ZH):</span>{' '}
+                        <span className="text-orange-400">{analyticsData.translationStats?.translated_zh || 0}</span>
+                      </div>
+                      <div>
+                        <span className="text-gray-400">Malay (MS):</span>{' '}
+                        <span className="text-orange-400">{analyticsData.translationStats?.translated_ms || 0}</span>
+                      </div>
+                      <div>
+                        <span className="text-gray-400">Both:</span>{' '}
+                        <span className="text-green-400">{analyticsData.translationStats?.both_translated || 0}</span>
+                      </div>
+                      <div>
+                        <span className="text-gray-400">Coverage:</span>{' '}
+                        <span className="text-blue-400">{analyticsData.translationStats?.coverage_pct || 0}%</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="p-6 rounded-xl bg-gray-800 border border-gray-700">
+                    <h3 className="text-lg font-bold mb-4">Article Age Distribution</h3>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="p-4 rounded-lg bg-gray-700/50">
+                        <p className="text-2xl font-bold text-green-400">{analyticsData.articleAgeStats?.today || 0}</p>
+                        <p className="text-xs text-gray-400">Today</p>
+                      </div>
+                      <div className="p-4 rounded-lg bg-gray-700/50">
+                        <p className="text-2xl font-bold text-blue-400">{analyticsData.articleAgeStats?.this_week || 0}</p>
+                        <p className="text-xs text-gray-400">This Week</p>
+                      </div>
+                      <div className="p-4 rounded-lg bg-gray-700/50">
+                        <p className="text-2xl font-bold text-orange-400">{analyticsData.articleAgeStats?.this_month || 0}</p>
+                        <p className="text-xs text-gray-400">This Month</p>
+                      </div>
+                      <div className="p-4 rounded-lg bg-gray-700/50">
+                        <p className="text-2xl font-bold text-gray-400">{analyticsData.articleAgeStats?.older || 0}</p>
+                        <p className="text-xs text-gray-400">Older</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Peak Hours & User Growth */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  <div className="p-6 rounded-xl bg-gray-800 border border-gray-700">
+                    <h3 className="text-lg font-bold mb-4">Peak Activity Hours</h3>
+                    <PeakHoursChart data={analyticsData.userEngagement?.peakHours || []} />
+                  </div>
+                  <div className="p-6 rounded-xl bg-gray-800 border border-gray-700">
+                    <h3 className="text-lg font-bold mb-4">User Growth (30 days)</h3>
+                    <UserGrowthChart data={analyticsData.userEngagement?.userGrowth || []} />
+                  </div>
+                </div>
+
+                {/* Top Active Users */}
+                {analyticsData.userEngagement?.topUsers?.length > 0 && (
+                  <div className="p-6 rounded-xl bg-gray-800 border border-gray-700">
+                    <h3 className="text-lg font-bold mb-4">Top Active Users</h3>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="border-b border-gray-700">
+                            <th className="text-left py-2 text-gray-400">User</th>
+                            <th className="text-right py-2 text-gray-400">Comments</th>
+                            <th className="text-right py-2 text-gray-400">Likes Given</th>
+                            <th className="text-right py-2 text-gray-400">Total Activity</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {analyticsData.userEngagement.topUsers.map((u: { id: number; username: string; display_name: string; comments: number; likes_given: number }) => (
+                            <tr key={u.id} className="border-b border-gray-700/50">
+                              <td className="py-2">
+                                <span className="font-medium">{u.display_name}</span>
+                                <span className="text-gray-500 ml-2 text-xs">@{u.username}</span>
+                              </td>
+                              <td className="py-2 text-right text-purple-400">{u.comments}</td>
+                              <td className="py-2 text-right text-blue-400">{u.likes_given}</td>
+                              <td className="py-2 text-right text-orange-400 font-medium">{u.comments + u.likes_given}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+              </>
+            ) : (
+              <p className="text-gray-500 text-center py-8">No analytics data available</p>
+            )}
+          </div>
+        )}
+
+        {/* Audit Log Tab */}
+        {activeTab === 'audit' && (
+          <div className="space-y-6">
+            {/* Action Filter */}
+            <div className="p-4 rounded-xl bg-gray-800 border border-gray-700 flex flex-wrap items-center gap-4">
+              <div>
+                <label className="block text-xs mb-1 text-gray-400">Filter by Action</label>
+                <select
+                  value={auditActionFilter}
+                  onChange={(e) => { setAuditActionFilter(e.target.value); handleAuditFilterChange(); }}
+                  className="px-3 py-2 rounded bg-gray-700 border border-gray-600 text-sm"
+                >
+                  <option value="all">All Actions</option>
+                  {auditActions.map(a => (
+                    <option key={a} value={a}>{a}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            {/* Audit Log Table */}
+            <div className="p-6 rounded-xl bg-gray-800 border border-gray-700">
+              <h2 className="text-lg font-bold mb-4">Audit Log</h2>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-gray-700">
+                      <th className="text-left py-2 text-gray-400">Time</th>
+                      <th className="text-left py-2 text-gray-400">Admin</th>
+                      <th className="text-left py-2 text-gray-400">Action</th>
+                      <th className="text-left py-2 text-gray-400">Target</th>
+                      <th className="text-left py-2 text-gray-400">Details</th>
+                      <th className="text-left py-2 text-gray-400">IP</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {auditLogs.map((log: { id: number; admin_username: string | null; action: string; target_type: string | null; target_id: string | null; details: string | null; ip_address: string | null; created_at: string }) => (
+                      <tr key={log.id} className="border-b border-gray-700/50">
+                        <td className="py-2 text-gray-500 text-xs whitespace-nowrap">{new Date(log.created_at).toLocaleString()}</td>
+                        <td className="py-2 font-medium">{log.admin_username || 'system'}</td>
+                        <td className="py-2">
+                          <span className="px-2 py-1 rounded text-xs bg-blue-500/20 text-blue-400">
+                            {log.action}
+                          </span>
+                        </td>
+                        <td className="py-2 text-gray-400">
+                          {log.target_type && <span>{log.target_type}</span>}
+                          {log.target_id && <span className="ml-1 text-orange-400">#{log.target_id}</span>}
+                        </td>
+                        <td className="py-2 max-w-xs truncate text-gray-500" title={log.details || ''}>{log.details || '-'}</td>
+                        <td className="py-2 text-gray-600 text-xs">{log.ip_address || '-'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Pagination */}
+              {auditTotalPages > 1 && (
+                <div className="flex justify-center gap-2 mt-4">
+                  <button
+                    onClick={() => setAuditPage(p => Math.max(1, p - 1))}
+                    disabled={auditPage === 1}
+                    className="px-3 py-1 rounded bg-gray-700 text-sm disabled:opacity-50 hover:bg-gray-600"
+                  >
+                    Previous
+                  </button>
+                  <span className="px-3 py-1 text-sm text-gray-400">
+                    Page {auditPage} of {auditTotalPages}
+                  </span>
+                  <button
+                    onClick={() => setAuditPage(p => Math.min(auditTotalPages, p + 1))}
+                    disabled={auditPage === auditTotalPages}
+                    className="px-3 py-1 rounded bg-gray-700 text-sm disabled:opacity-50 hover:bg-gray-600"
+                  >
+                    Next
+                  </button>
+                </div>
+              )}
+
+              {auditLogs.length === 0 && (
+                <p className="text-center py-4 text-gray-500">No audit log entries yet</p>
               )}
             </div>
           </div>

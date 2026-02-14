@@ -245,6 +245,43 @@ function initializeDb(database: Database.Database) {
       updated_at TEXT DEFAULT CURRENT_TIMESTAMP
     )
   `);
+
+  // Admin audit log table
+  database.exec(`
+    CREATE TABLE IF NOT EXISTS admin_audit_log (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      admin_id INTEGER,
+      admin_username TEXT,
+      action TEXT NOT NULL,
+      target_type TEXT,
+      target_id TEXT,
+      details TEXT,
+      ip_address TEXT,
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+  database.exec(`CREATE INDEX IF NOT EXISTS idx_audit_log_created ON admin_audit_log(created_at)`);
+  database.exec(`CREATE INDEX IF NOT EXISTS idx_audit_log_action ON admin_audit_log(action)`);
+
+  // Search logs table
+  database.exec(`
+    CREATE TABLE IF NOT EXISTS search_logs (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      query TEXT NOT NULL,
+      user_id INTEGER,
+      results_count INTEGER DEFAULT 0,
+      category_filter TEXT,
+      source_filter TEXT,
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+  database.exec(`CREATE INDEX IF NOT EXISTS idx_search_logs_created ON search_logs(created_at)`);
+  database.exec(`CREATE INDEX IF NOT EXISTS idx_search_logs_query ON search_logs(query)`);
+
+  // User ban columns
+  try { database.exec(`ALTER TABLE users ADD COLUMN is_banned INTEGER DEFAULT 0`); } catch { /* exists */ }
+  try { database.exec(`ALTER TABLE users ADD COLUMN banned_reason TEXT`); } catch { /* exists */ }
+  try { database.exec(`ALTER TABLE users ADD COLUMN banned_at TEXT`); } catch { /* exists */ }
 }
 
 // ============ APP METADATA FUNCTIONS ============
@@ -886,15 +923,17 @@ export function deleteNews(newsId: number): void {
   db.prepare('DELETE FROM news WHERE id = ?').run(newsId);
 }
 
-export function getStats(): { totalNews: number; totalUsers: number; totalComments: number } {
+export function getStats(): { totalNews: number; totalUsers: number; totalComments: number; bannedUsers: number } {
   const db = getDb();
   const news = db.prepare('SELECT COUNT(*) as count FROM news').get() as { count: number };
   const users = db.prepare('SELECT COUNT(*) as count FROM users').get() as { count: number };
   const comments = db.prepare('SELECT COUNT(*) as count FROM comments').get() as { count: number };
+  const banned = db.prepare('SELECT COUNT(*) as count FROM users WHERE is_banned = 1').get() as { count: number };
   return {
     totalNews: news.count,
     totalUsers: users.count,
-    totalComments: comments.count
+    totalComments: comments.count,
+    bannedUsers: banned.count
   };
 }
 
@@ -920,10 +959,10 @@ export function deleteUser(userId: number): boolean {
   return true;
 }
 
-// Get all users with admin status
-export function getAllUsersWithAdmin(): (User & { is_admin: number })[] {
+// Get all users with admin status and ban fields
+export function getAllUsersWithAdmin(): (User & { is_admin: number; is_banned: number; banned_reason: string | null; banned_at: string | null })[] {
   const db = getDb();
-  return db.prepare('SELECT id, username, email, display_name, is_admin, created_at FROM users ORDER BY created_at DESC').all() as (User & { is_admin: number })[];
+  return db.prepare('SELECT id, username, email, display_name, is_admin, is_banned, banned_reason, banned_at, created_at FROM users ORDER BY created_at DESC').all() as (User & { is_admin: number; is_banned: number; banned_reason: string | null; banned_at: string | null })[];
 }
 
 // Get all comments for moderation (with user and news info)
@@ -1794,6 +1833,358 @@ export function getAllFeedback(): (UserFeedback & { username: string })[] {
     JOIN users u ON f.user_id = u.id
     ORDER BY f.created_at DESC
   `).all() as (UserFeedback & { username: string })[];
+}
+
+// ============ AUDIT LOG FUNCTIONS ============
+
+export interface AuditLogEntry {
+  id: number;
+  admin_id: number | null;
+  admin_username: string | null;
+  action: string;
+  target_type: string | null;
+  target_id: string | null;
+  details: string | null;
+  ip_address: string | null;
+  created_at: string;
+}
+
+export function addAuditLog(entry: {
+  adminId?: number;
+  adminUsername?: string;
+  action: string;
+  targetType?: string;
+  targetId?: string;
+  details?: string;
+  ipAddress?: string;
+}): void {
+  const db = getDb();
+  db.prepare(`
+    INSERT INTO admin_audit_log (admin_id, admin_username, action, target_type, target_id, details, ip_address)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
+  `).run(
+    entry.adminId || null,
+    entry.adminUsername || null,
+    entry.action,
+    entry.targetType || null,
+    entry.targetId || null,
+    entry.details || null,
+    entry.ipAddress || null
+  );
+}
+
+export function getAuditLogs(
+  page: number = 1,
+  limit: number = 20,
+  actionFilter?: string
+): { logs: AuditLogEntry[]; total: number; totalPages: number } {
+  const db = getDb();
+  const offset = (page - 1) * limit;
+
+  const whereClause = actionFilter && actionFilter !== 'all' ? 'WHERE action = ?' : '';
+  const params = actionFilter && actionFilter !== 'all' ? [actionFilter] : [];
+
+  const total = (db.prepare(`SELECT COUNT(*) as count FROM admin_audit_log ${whereClause}`).get(...params) as { count: number }).count;
+  const logs = db.prepare(`
+    SELECT * FROM admin_audit_log ${whereClause}
+    ORDER BY created_at DESC
+    LIMIT ? OFFSET ?
+  `).all(...params, limit, offset) as AuditLogEntry[];
+
+  return { logs, total, totalPages: Math.ceil(total / limit) };
+}
+
+export function getAuditLogActions(): string[] {
+  const db = getDb();
+  const rows = db.prepare('SELECT DISTINCT action FROM admin_audit_log ORDER BY action').all() as { action: string }[];
+  return rows.map(r => r.action);
+}
+
+// ============ SEARCH LOG FUNCTIONS ============
+
+export function logSearch(data: {
+  query: string;
+  userId?: number;
+  resultsCount: number;
+  categoryFilter?: string;
+  sourceFilter?: string;
+}): void {
+  const db = getDb();
+  db.prepare(`
+    INSERT INTO search_logs (query, user_id, results_count, category_filter, source_filter)
+    VALUES (?, ?, ?, ?, ?)
+  `).run(
+    data.query,
+    data.userId || null,
+    data.resultsCount,
+    data.categoryFilter || null,
+    data.sourceFilter || null
+  );
+}
+
+export function getSearchAnalytics(): {
+  topQueries: { query: string; count: number; avg_results: number }[];
+  zeroResultQueries: { query: string; count: number }[];
+  volumeOverTime: { date: string; count: number }[];
+} {
+  const db = getDb();
+
+  const topQueries = db.prepare(`
+    SELECT query, COUNT(*) as count, ROUND(AVG(results_count), 1) as avg_results
+    FROM search_logs
+    WHERE created_at >= datetime('now', '-30 days')
+    GROUP BY LOWER(query)
+    ORDER BY count DESC
+    LIMIT 20
+  `).all() as { query: string; count: number; avg_results: number }[];
+
+  const zeroResultQueries = db.prepare(`
+    SELECT query, COUNT(*) as count
+    FROM search_logs
+    WHERE results_count = 0 AND created_at >= datetime('now', '-30 days')
+    GROUP BY LOWER(query)
+    ORDER BY count DESC
+    LIMIT 20
+  `).all() as { query: string; count: number }[];
+
+  const volumeOverTime = db.prepare(`
+    SELECT date(created_at) as date, COUNT(*) as count
+    FROM search_logs
+    WHERE created_at >= datetime('now', '-30 days')
+    GROUP BY date(created_at)
+    ORDER BY date ASC
+  `).all() as { date: string; count: number }[];
+
+  return { topQueries, zeroResultQueries, volumeOverTime };
+}
+
+// ============ FEED HEALTH FUNCTIONS ============
+
+export function getFeedHealthStatus(): {
+  staleFeeds: { id: number; name: string; last_fetched_at: string | null; hours_since_fetch: number }[];
+  errorFeeds: { id: number; name: string; error_count: number; last_error: string | null }[];
+  healthy: boolean;
+} {
+  const db = getDb();
+
+  // Feeds not fetched in >24 hours
+  const staleFeeds = db.prepare(`
+    SELECT id, name, last_fetched_at,
+      ROUND((julianday('now') - julianday(COALESCE(last_fetched_at, created_at))) * 24, 1) as hours_since_fetch
+    FROM rss_feeds
+    WHERE is_active = 1
+    AND (last_fetched_at IS NULL OR last_fetched_at < datetime('now', '-24 hours'))
+  `).all() as { id: number; name: string; last_fetched_at: string | null; hours_since_fetch: number }[];
+
+  // Feeds with >= 3 consecutive errors
+  const errorFeeds = db.prepare(`
+    SELECT id, name, error_count, last_error
+    FROM rss_feeds
+    WHERE is_active = 1 AND error_count >= 3
+  `).all() as { id: number; name: string; error_count: number; last_error: string | null }[];
+
+  return {
+    staleFeeds,
+    errorFeeds,
+    healthy: staleFeeds.length === 0 && errorFeeds.length === 0
+  };
+}
+
+// ============ CONTENT ANALYTICS FUNCTIONS ============
+
+export function getSourcePerformance(): { source_name: string; article_count: number; total_clicks: number; avg_clicks: number; total_comments: number }[] {
+  const db = getDb();
+  return db.prepare(`
+    SELECT source_name,
+      COUNT(*) as article_count,
+      COALESCE(SUM(clicks), 0) as total_clicks,
+      ROUND(COALESCE(AVG(clicks), 0), 1) as avg_clicks,
+      COALESCE(SUM(comment_count), 0) as total_comments
+    FROM news
+    GROUP BY source_name
+    ORDER BY avg_clicks DESC
+  `).all() as { source_name: string; article_count: number; total_clicks: number; avg_clicks: number; total_comments: number }[];
+}
+
+export function getCategoryEngagement(): { category: string; article_count: number; total_clicks: number; total_comments: number }[] {
+  const db = getDb();
+  return db.prepare(`
+    SELECT COALESCE(category, 'general') as category,
+      COUNT(*) as article_count,
+      COALESCE(SUM(clicks), 0) as total_clicks,
+      COALESCE(SUM(comment_count), 0) as total_comments
+    FROM news
+    GROUP BY COALESCE(category, 'general')
+    ORDER BY total_clicks DESC
+  `).all() as { category: string; article_count: number; total_clicks: number; total_comments: number }[];
+}
+
+export function getTranslationStats(): { total: number; translated_zh: number; translated_ms: number; both_translated: number; coverage_pct: number } {
+  const db = getDb();
+  const total = (db.prepare('SELECT COUNT(*) as count FROM news').get() as { count: number }).count;
+  const zh = (db.prepare('SELECT COUNT(*) as count FROM news WHERE title_zh IS NOT NULL').get() as { count: number }).count;
+  const ms = (db.prepare('SELECT COUNT(*) as count FROM news WHERE title_ms IS NOT NULL').get() as { count: number }).count;
+  const both = (db.prepare('SELECT COUNT(*) as count FROM news WHERE title_zh IS NOT NULL AND title_ms IS NOT NULL').get() as { count: number }).count;
+
+  return {
+    total,
+    translated_zh: zh,
+    translated_ms: ms,
+    both_translated: both,
+    coverage_pct: total > 0 ? Math.round((both / total) * 100) : 0
+  };
+}
+
+export function getArticleAgeStats(): { today: number; this_week: number; this_month: number; older: number } {
+  const db = getDb();
+  const today = (db.prepare("SELECT COUNT(*) as count FROM news WHERE date(created_at) = date('now')").get() as { count: number }).count;
+  const thisWeek = (db.prepare("SELECT COUNT(*) as count FROM news WHERE created_at >= datetime('now', '-7 days')").get() as { count: number }).count;
+  const thisMonth = (db.prepare("SELECT COUNT(*) as count FROM news WHERE created_at >= datetime('now', '-30 days')").get() as { count: number }).count;
+  const total = (db.prepare('SELECT COUNT(*) as count FROM news').get() as { count: number }).count;
+
+  return {
+    today,
+    this_week: thisWeek,
+    this_month: thisMonth,
+    older: total - thisMonth
+  };
+}
+
+// ============ USER ANALYTICS FUNCTIONS ============
+
+export function getUserEngagementMetrics(): {
+  dau: number;
+  wau: number;
+  mau: number;
+  topUsers: { id: number; username: string; display_name: string; comments: number; likes_given: number }[];
+  peakHours: { hour: number; activity_count: number }[];
+  userGrowth: { date: string; new_users: number }[];
+} {
+  const db = getDb();
+
+  // DAU: users with comments or likes today
+  const dau = (db.prepare(`
+    SELECT COUNT(DISTINCT user_id) as count FROM (
+      SELECT user_id FROM comments WHERE date(created_at) = date('now')
+      UNION
+      SELECT user_id FROM comment_likes WHERE date(created_at) = date('now')
+      UNION
+      SELECT user_id FROM bookmarks WHERE date(created_at) = date('now')
+    )
+  `).get() as { count: number }).count;
+
+  // WAU: active in last 7 days
+  const wau = (db.prepare(`
+    SELECT COUNT(DISTINCT user_id) as count FROM (
+      SELECT user_id FROM comments WHERE created_at >= datetime('now', '-7 days')
+      UNION
+      SELECT user_id FROM comment_likes WHERE created_at >= datetime('now', '-7 days')
+      UNION
+      SELECT user_id FROM bookmarks WHERE created_at >= datetime('now', '-7 days')
+    )
+  `).get() as { count: number }).count;
+
+  // MAU: active in last 30 days
+  const mau = (db.prepare(`
+    SELECT COUNT(DISTINCT user_id) as count FROM (
+      SELECT user_id FROM comments WHERE created_at >= datetime('now', '-30 days')
+      UNION
+      SELECT user_id FROM comment_likes WHERE created_at >= datetime('now', '-30 days')
+      UNION
+      SELECT user_id FROM bookmarks WHERE created_at >= datetime('now', '-30 days')
+    )
+  `).get() as { count: number }).count;
+
+  // Top active users (by comment count + likes given)
+  const topUsers = db.prepare(`
+    SELECT u.id, u.username, u.display_name,
+      (SELECT COUNT(*) FROM comments WHERE user_id = u.id) as comments,
+      (SELECT COUNT(*) FROM comment_likes WHERE user_id = u.id) as likes_given
+    FROM users u
+    WHERE u.is_banned = 0 OR u.is_banned IS NULL
+    ORDER BY comments + likes_given DESC
+    LIMIT 10
+  `).all() as { id: number; username: string; display_name: string; comments: number; likes_given: number }[];
+
+  // Peak activity hours (from comments in last 30 days)
+  const peakHours = db.prepare(`
+    SELECT CAST(strftime('%H', created_at) AS INTEGER) as hour,
+      COUNT(*) as activity_count
+    FROM comments
+    WHERE created_at >= datetime('now', '-30 days')
+    GROUP BY hour
+    ORDER BY hour
+  `).all() as { hour: number; activity_count: number }[];
+
+  // User growth over 30 days
+  const userGrowth = db.prepare(`
+    SELECT date(created_at) as date, COUNT(*) as new_users
+    FROM users
+    WHERE created_at >= datetime('now', '-30 days')
+    GROUP BY date(created_at)
+    ORDER BY date ASC
+  `).all() as { date: string; new_users: number }[];
+
+  return { dau, wau, mau, topUsers, peakHours, userGrowth };
+}
+
+// ============ BAN FUNCTIONS ============
+
+export function banUser(userId: number, reason: string): boolean {
+  const db = getDb();
+  const result = db.prepare(`
+    UPDATE users SET is_banned = 1, banned_reason = ?, banned_at = CURRENT_TIMESTAMP WHERE id = ?
+  `).run(reason, userId);
+  return result.changes > 0;
+}
+
+export function unbanUser(userId: number): boolean {
+  const db = getDb();
+  const result = db.prepare(`
+    UPDATE users SET is_banned = 0, banned_reason = NULL, banned_at = NULL WHERE id = ?
+  `).run(userId);
+  return result.changes > 0;
+}
+
+export function isUserBanned(userId: number): boolean {
+  const db = getDb();
+  const user = db.prepare('SELECT is_banned FROM users WHERE id = ?').get(userId) as { is_banned: number } | undefined;
+  return user?.is_banned === 1;
+}
+
+export function getBannedUserCount(): number {
+  const db = getDb();
+  return (db.prepare('SELECT COUNT(*) as count FROM users WHERE is_banned = 1').get() as { count: number }).count;
+}
+
+// ============ AUTO-MODERATION FUNCTIONS ============
+
+export function checkCommentRateLimit(userId: number): boolean {
+  const db = getDb();
+  const limitStr = getMetadata('comment_rate_limit');
+  const maxPerHour = limitStr ? parseInt(limitStr) : 10; // default 10/hr
+
+  const count = (db.prepare(`
+    SELECT COUNT(*) as count FROM comments
+    WHERE user_id = ? AND created_at >= datetime('now', '-1 hour')
+  `).get(userId) as { count: number }).count;
+
+  return count >= maxPerHour; // true = rate limited
+}
+
+export function checkBannedWords(content: string): { flagged: boolean; matchedWord: string | null } {
+  const wordsStr = getMetadata('banned_words');
+  if (!wordsStr) return { flagged: false, matchedWord: null };
+
+  const words = wordsStr.split(',').map(w => w.trim().toLowerCase()).filter(Boolean);
+  const lowerContent = content.toLowerCase();
+
+  for (const word of words) {
+    if (lowerContent.includes(word)) {
+      return { flagged: true, matchedWord: word };
+    }
+  }
+  return { flagged: false, matchedWord: null };
 }
 
 export function saveNewsSummary(newsId: number, data: Partial<Omit<NewsSummary, 'id' | 'news_id' | 'created_at'>>): boolean {

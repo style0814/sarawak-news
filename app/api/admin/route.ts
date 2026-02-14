@@ -39,7 +39,21 @@ import {
   approvePayment,
   rejectPayment,
   ErrorLevel,
-  ErrorType
+  ErrorType,
+  addAuditLog,
+  getAuditLogs,
+  getAuditLogActions,
+  getSourcePerformance,
+  getCategoryEngagement,
+  getTranslationStats,
+  getArticleAgeStats,
+  getUserEngagementMetrics,
+  getSearchAnalytics,
+  getFeedHealthStatus,
+  banUser,
+  unbanUser,
+  getMetadata,
+  setMetadata
 } from '@/lib/db';
 
 // Get admin dashboard data
@@ -61,6 +75,7 @@ export async function GET(request: NextRequest) {
     const topSources = getTopSources();
     const categoryStats = getCategoryStats();
     const untranslatedCount = getUntranslatedCount();
+    const feedHealth = getFeedHealthStatus();
 
     return NextResponse.json({
       stats,
@@ -68,7 +83,8 @@ export async function GET(request: NextRequest) {
       topNews,
       topSources,
       categoryStats,
-      untranslatedCount
+      untranslatedCount,
+      feedHealth
     });
   }
 
@@ -153,6 +169,41 @@ export async function GET(request: NextRequest) {
     });
   }
 
+  // Analytics tab
+  if (tab === 'analytics') {
+    const sourcePerformance = getSourcePerformance();
+    const categoryEngagement = getCategoryEngagement();
+    const translationStats = getTranslationStats();
+    const articleAgeStats = getArticleAgeStats();
+    const userEngagement = getUserEngagementMetrics();
+    const searchAnalytics = getSearchAnalytics();
+
+    return NextResponse.json({
+      sourcePerformance,
+      categoryEngagement,
+      translationStats,
+      articleAgeStats,
+      userEngagement,
+      searchAnalytics
+    });
+  }
+
+  // Audit log tab
+  if (tab === 'audit') {
+    const page = parseInt(searchParams.get('page') || '1', 10);
+    const actionFilter = searchParams.get('action') || undefined;
+    const result = getAuditLogs(page, 20, actionFilter);
+    const actions = getAuditLogActions();
+    return NextResponse.json({ ...result, actions });
+  }
+
+  // Moderation config tab
+  if (tab === 'moderation-config') {
+    const bannedWords = getMetadata('banned_words') || '';
+    const commentRateLimit = getMetadata('comment_rate_limit') || '10';
+    return NextResponse.json({ bannedWords, commentRateLimit });
+  }
+
   return NextResponse.json({ error: 'Invalid tab' }, { status: 400 });
 }
 
@@ -168,10 +219,32 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { action } = body;
 
+    // Get admin session for audit logging
+    const adminSession = await getAdminSession();
+    const adminId = adminSession?.userId || 1;
+    const adminUsername = adminSession?.username || 'admin';
+    const ipAddress = request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || 'unknown';
+
+    // DRY audit log helper
+    const auditLog = (targetType?: string, targetId?: string, details?: string) => {
+      try {
+        addAuditLog({
+          adminId,
+          adminUsername,
+          action,
+          targetType,
+          targetId,
+          details,
+          ipAddress
+        });
+      } catch { /* non-critical */ }
+    };
+
     // Toggle user admin status
     if (action === 'toggleAdmin') {
       const { userId, currentAdminStatus } = body;
       setUserAdmin(userId, !currentAdminStatus);
+      auditLog('user', String(userId), `Set admin=${!currentAdminStatus}`);
       return NextResponse.json({ success: true, isAdmin: !currentAdminStatus });
     }
 
@@ -179,6 +252,29 @@ export async function POST(request: NextRequest) {
     if (action === 'deleteUser') {
       const { userId } = body;
       const success = deleteUser(userId);
+      auditLog('user', String(userId));
+      return NextResponse.json({ success });
+    }
+
+    // Ban user
+    if (action === 'banUser') {
+      const { userId, reason } = body;
+      if (!userId) {
+        return NextResponse.json({ error: 'User ID is required' }, { status: 400 });
+      }
+      const success = banUser(userId, reason || 'Banned by admin');
+      auditLog('user', String(userId), reason || 'Banned by admin');
+      return NextResponse.json({ success });
+    }
+
+    // Unban user
+    if (action === 'unbanUser') {
+      const { userId } = body;
+      if (!userId) {
+        return NextResponse.json({ error: 'User ID is required' }, { status: 400 });
+      }
+      const success = unbanUser(userId);
+      auditLog('user', String(userId));
       return NextResponse.json({ success });
     }
 
@@ -189,6 +285,7 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'Invalid days parameter' }, { status: 400 });
       }
       const deleted = bulkDeleteOldNews(days);
+      auditLog('news', undefined, `Deleted ${deleted} articles older than ${days} days`);
       return NextResponse.json({ success: true, deleted });
     }
 
@@ -196,6 +293,7 @@ export async function POST(request: NextRequest) {
     if (action === 'resolveError') {
       const { errorId } = body;
       const success = resolveError(errorId);
+      auditLog('error', String(errorId));
       return NextResponse.json({ success });
     }
 
@@ -203,6 +301,7 @@ export async function POST(request: NextRequest) {
     if (action === 'unresolveError') {
       const { errorId } = body;
       const success = unresolveError(errorId);
+      auditLog('error', String(errorId));
       return NextResponse.json({ success });
     }
 
@@ -210,6 +309,7 @@ export async function POST(request: NextRequest) {
     if (action === 'deleteError') {
       const { errorId } = body;
       const success = deleteErrorLog(errorId);
+      auditLog('error', String(errorId));
       return NextResponse.json({ success });
     }
 
@@ -220,12 +320,14 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'Invalid days parameter' }, { status: 400 });
       }
       const deleted = bulkDeleteOldErrors(days);
+      auditLog('error', undefined, `Deleted ${deleted} errors older than ${days} days`);
       return NextResponse.json({ success: true, deleted });
     }
 
     // Clear all resolved errors
     if (action === 'clearResolvedErrors') {
       const deleted = clearResolvedErrors();
+      auditLog('error', undefined, `Cleared ${deleted} resolved errors`);
       return NextResponse.json({ success: true, deleted });
     }
 
@@ -238,6 +340,7 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'Comment ID is required' }, { status: 400 });
       }
       const success = flagComment(commentId, reason || 'Flagged by admin');
+      auditLog('comment', String(commentId), reason || 'Flagged by admin');
       return NextResponse.json({ success });
     }
 
@@ -248,6 +351,7 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'Comment ID is required' }, { status: 400 });
       }
       const success = unflagComment(commentId);
+      auditLog('comment', String(commentId));
       return NextResponse.json({ success });
     }
 
@@ -258,6 +362,7 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'Comment ID is required' }, { status: 400 });
       }
       const success = hideComment(commentId, note);
+      auditLog('comment', String(commentId), note);
       return NextResponse.json({ success });
     }
 
@@ -268,6 +373,7 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'Comment ID is required' }, { status: 400 });
       }
       const success = unhideComment(commentId);
+      auditLog('comment', String(commentId));
       return NextResponse.json({ success });
     }
 
@@ -278,6 +384,7 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'Comment ID is required' }, { status: 400 });
       }
       deleteComment(commentId);
+      auditLog('comment', String(commentId));
       return NextResponse.json({ success: true });
     }
 
@@ -293,6 +400,7 @@ export async function POST(request: NextRequest) {
       if (!feed) {
         return NextResponse.json({ error: 'Feed URL already exists' }, { status: 400 });
       }
+      auditLog('feed', String(feed.id), `Added feed: ${name}`);
       return NextResponse.json({ success: true, feed });
     }
 
@@ -303,6 +411,7 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'Feed ID is required' }, { status: 400 });
       }
       const success = updateRssFeed(feedId, { name, url, is_sarawak_source });
+      auditLog('feed', String(feedId), `Updated feed`);
       return NextResponse.json({ success });
     }
 
@@ -313,6 +422,7 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'Feed ID is required' }, { status: 400 });
       }
       const success = toggleRssFeed(feedId);
+      auditLog('feed', String(feedId));
       return NextResponse.json({ success });
     }
 
@@ -323,6 +433,7 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'Feed ID is required' }, { status: 400 });
       }
       const success = deleteRssFeed(feedId);
+      auditLog('feed', String(feedId));
       return NextResponse.json({ success });
     }
 
@@ -334,12 +445,11 @@ export async function POST(request: NextRequest) {
       if (!paymentId) {
         return NextResponse.json({ error: 'Payment ID is required' }, { status: 400 });
       }
-      const adminSession = await getAdminSession();
-      const adminId = adminSession?.userId || 1;
       const success = approvePayment(paymentId, adminId, months || 1);
       if (!success) {
         return NextResponse.json({ error: 'Failed to approve payment' }, { status: 500 });
       }
+      auditLog('payment', String(paymentId), `Approved for ${months || 1} months`);
       return NextResponse.json({ success: true });
     }
 
@@ -349,12 +459,32 @@ export async function POST(request: NextRequest) {
       if (!paymentId) {
         return NextResponse.json({ error: 'Payment ID is required' }, { status: 400 });
       }
-      const adminSession = await getAdminSession();
-      const adminId = adminSession?.userId || 1;
       const success = rejectPayment(paymentId, adminId, note);
       if (!success) {
         return NextResponse.json({ error: 'Failed to reject payment' }, { status: 500 });
       }
+      auditLog('payment', String(paymentId), note);
+      return NextResponse.json({ success: true });
+    }
+
+    // ============ Moderation Config Actions ============
+
+    // Update banned words
+    if (action === 'updateBannedWords') {
+      const { words } = body;
+      setMetadata('banned_words', words || '');
+      auditLog('config', 'banned_words', `Updated banned words list`);
+      return NextResponse.json({ success: true });
+    }
+
+    // Update rate limit
+    if (action === 'updateRateLimit') {
+      const { limit } = body;
+      if (limit === undefined || limit < 1) {
+        return NextResponse.json({ error: 'Invalid rate limit' }, { status: 400 });
+      }
+      setMetadata('comment_rate_limit', String(limit));
+      auditLog('config', 'comment_rate_limit', `Set to ${limit}/hour`);
       return NextResponse.json({ success: true });
     }
 

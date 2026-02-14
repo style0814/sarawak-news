@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { searchNews, getSearchSuggestions, SearchFilters } from '@/lib/db';
+import { searchNews, getSearchSuggestions, SearchFilters, logSearch } from '@/lib/db';
 
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
@@ -40,6 +40,16 @@ export async function GET(request: NextRequest) {
   if (sortBy) filters.sortBy = sortBy;
 
   const result = searchNews(sanitizedQuery, page, limit, filters);
+
+  // Log search query (non-blocking)
+  try {
+    logSearch({
+      query: sanitizedQuery,
+      resultsCount: result.total,
+      categoryFilter: category || undefined,
+      sourceFilter: source || undefined
+    });
+  } catch { /* non-critical */ }
 
   return NextResponse.json({
     news: result.news,
