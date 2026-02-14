@@ -1002,7 +1002,7 @@ export default function AdminDashboard() {
       {/* Tabs */}
       <div className="border-b border-gray-700">
         <div className="max-w-7xl mx-auto px-4">
-          <nav className="flex gap-1 overflow-x-auto">
+          <nav className="flex gap-1 overflow-x-auto hide-scrollbar">
             {tabs.map(tab => (
               <button
                 key={tab.key}
