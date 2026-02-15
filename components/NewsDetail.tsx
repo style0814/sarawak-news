@@ -21,11 +21,18 @@ interface NewsItem {
   category?: string;
 }
 
-interface NewsDetailProps {
-  initialNews: NewsItem | null;
+interface SummaryData {
+  summary_en: string | null;
+  summary_zh: string | null;
+  summary_ms: string | null;
 }
 
-export default function NewsDetail({ initialNews }: NewsDetailProps) {
+interface NewsDetailProps {
+  initialNews: NewsItem | null;
+  initialSummary?: SummaryData | null;
+}
+
+export default function NewsDetail({ initialNews, initialSummary }: NewsDetailProps) {
   const router = useRouter();
   const [news] = useState<NewsItem | null>(initialNews);
   const { lang, setLanguage } = useLanguage();
@@ -123,6 +130,23 @@ export default function NewsDetail({ initialNews }: NewsDetailProps) {
             </div>
           </div>
         </article>
+
+        {/* AI Summary */}
+        {initialSummary && (() => {
+          const summaryText = lang === 'zh' && initialSummary.summary_zh ? initialSummary.summary_zh :
+                              lang === 'ms' && initialSummary.summary_ms ? initialSummary.summary_ms :
+                              initialSummary.summary_en;
+          if (!summaryText) return null;
+          return (
+            <section className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 mb-8">
+              <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-100 mb-3 flex items-center gap-2">
+                <span>📝</span>
+                {lang === 'zh' ? 'AI 摘要' : lang === 'ms' ? 'Ringkasan AI' : 'AI Summary'}
+              </h2>
+              <p className="text-gray-700 dark:text-gray-300 leading-relaxed whitespace-pre-line">{summaryText}</p>
+            </section>
+          );
+        })()}
 
         {/* Comments Section */}
         <CommentSection newsId={news.id} lang={lang} />

@@ -1,5 +1,5 @@
 import { Metadata } from 'next';
-import { getNewsById, incrementClicks } from '@/lib/db';
+import { getNewsById, incrementClicks, getNewsSummary } from '@/lib/db';
 import NewsDetail from '@/components/NewsDetail';
 
 interface Props {
@@ -21,10 +21,14 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://sarawaknews.my';
   const newsUrl = `${siteUrl}/news/${news.id}`;
+  const summary = getNewsSummary(newsId);
+  const description = summary?.summary_en
+    ? summary.summary_en.slice(0, 200)
+    : `${news.title} - Read more from ${news.source_name}. News from Sarawak, Malaysia.`;
 
   return {
     title: news.title,
-    description: `${news.title} - Read more from ${news.source_name}. News from Sarawak, Malaysia.`,
+    description,
     keywords: [news.source_name, news.category || 'general', 'Sarawak', 'news', 'Malaysia'],
     alternates: {
       canonical: newsUrl
@@ -33,7 +37,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       type: 'article',
       url: newsUrl,
       title: news.title,
-      description: `${news.title} - Read more from ${news.source_name}`,
+      description,
       siteName: 'Sarawak News',
       publishedTime: news.published_at || news.created_at,
       authors: [news.source_name],
@@ -43,7 +47,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     twitter: {
       card: 'summary',
       title: news.title,
-      description: `${news.title} - Read more from ${news.source_name}`
+      description,
     }
   };
 }
@@ -54,6 +58,7 @@ export default async function NewsDetailPage({ params }: Props) {
 
   // Fetch and increment clicks
   const news = incrementClicks(newsId);
+  const summary = news ? getNewsSummary(newsId) : null;
 
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://sarawaknews.my';
 
@@ -61,7 +66,8 @@ export default async function NewsDetailPage({ params }: Props) {
     '@context': 'https://schema.org',
     '@type': 'NewsArticle',
     headline: news.title,
-    description: `${news.title} - News from ${news.source_name}`,
+    description: summary?.summary_en || `${news.title} - News from ${news.source_name}`,
+    ...(summary?.summary_en ? { articleBody: summary.summary_en } : {}),
     url: `${siteUrl}/news/${news.id}`,
     datePublished: news.published_at || news.created_at,
     dateModified: news.created_at,
@@ -90,7 +96,14 @@ export default async function NewsDetailPage({ params }: Props) {
           dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
         />
       )}
-      <NewsDetail initialNews={news} />
+      <NewsDetail
+        initialNews={news}
+        initialSummary={summary ? {
+          summary_en: summary.summary_en,
+          summary_zh: summary.summary_zh,
+          summary_ms: summary.summary_ms,
+        } : null}
+      />
     </>
   );
 }
