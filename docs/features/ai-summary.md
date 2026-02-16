@@ -10,7 +10,7 @@ FREE feature that generates AI-powered summaries of news articles using Groq's L
 | Availability | FREE for all logged-in users |
 | Languages | English, Chinese, Malay |
 | Caching | Summaries cached in database per language |
-| Location | Main news list (inline) |
+| Location | Main news list (inline) + news detail pages (SSR) |
 
 ## How It Works
 
@@ -180,6 +180,35 @@ Guidelines:
 
 ## Frontend Integration
 
+### NewsDetail.tsx (Detail Page — Server-Side Rendered)
+
+AI summaries are displayed on news detail pages (`/news/[id]`) for SEO and content value.
+The summary is fetched server-side and passed as a prop, so crawlers see it in raw HTML.
+
+```tsx
+// app/news/[id]/page.tsx (Server Component)
+const summary = news ? getNewsSummary(newsId) : null;
+// Passed to NewsDetail as initialSummary prop
+// Also used in: meta description, OG tags, JSON-LD articleBody
+```
+
+```tsx
+// components/NewsDetail.tsx
+// Language-aware summary display between article card and comments
+{initialSummary && (() => {
+  const summaryText = lang === 'zh' ? initialSummary.summary_zh :
+                      lang === 'ms' ? initialSummary.summary_ms :
+                      initialSummary.summary_en;
+  if (!summaryText) return null;
+  return (
+    <section>
+      <h2>AI Summary</h2>
+      <p>{summaryText}</p>
+    </section>
+  );
+})()}
+```
+
 ### NewsItem.tsx (Main Page)
 ```tsx
 // AI Summary button with slide-out panel
@@ -228,6 +257,8 @@ Groq offers generous free tier:
 | File | Purpose |
 |------|---------|
 | `app/api/summary/route.ts` | Summary generation API |
+| `app/news/[id]/page.tsx` | SSR summary in meta + JSON-LD + props |
 | `lib/articleExtractor.ts` | Article content extraction |
-| `components/NewsItem.tsx` | Inline summary UI |
+| `components/NewsItem.tsx` | Inline summary UI (main page) |
+| `components/NewsDetail.tsx` | SSR summary display (detail page) |
 | `lib/db.ts` | Summary caching functions |

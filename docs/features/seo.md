@@ -6,14 +6,50 @@ The Sarawak News application implements comprehensive SEO (Search Engine Optimiz
 
 ## Features
 
-- **Dynamic Metadata** - Per-page titles and descriptions
+- **Server-Side Rendered Content** - Homepage and news pages render full content in HTML for crawlers
+- **Dynamic Metadata** - Per-page titles and descriptions (with AI summaries)
 - **Open Graph Tags** - Rich previews on Facebook, LinkedIn
 - **Twitter Cards** - Rich previews on Twitter/X
 - **Robots.txt** - Crawler directives
 - **Dynamic Sitemap** - Auto-updated XML sitemap
-- **Structured Data** - JSON-LD schema markup
+- **Structured Data** - JSON-LD schema markup with articleBody from AI summaries
 
 ## Implementation
+
+### Server-Side Rendering (SSR) for Crawlers
+
+The homepage (`app/page.tsx`) is a **Server Component** that fetches news directly from the database at render time. This ensures Google and other crawlers see full news content in the raw HTML instead of a loading spinner.
+
+**File:** `app/page.tsx` (Server Component)
+```typescript
+import { getAllNews, getMetadata, NEWS_CATEGORIES } from '@/lib/db';
+import HomeClient from '@/components/HomeClient';
+
+export default function Home() {
+  const { news, total, totalPages } = getAllNews(1, 20);
+  const lastRefresh = getMetadata('last_refresh');
+  return <HomeClient initialNews={news} initialPagination={...} />;
+}
+```
+
+The client component (`components/HomeClient.tsx`) receives the SSR data as props and hydrates without an initial API call. All interactivity (search, pagination, category filter, auto-refresh) works client-side after hydration.
+
+### AI Summaries in News Detail Pages
+
+**File:** `app/news/[id]/page.tsx`
+
+News detail pages fetch AI summaries server-side and include them in:
+- **Meta description** — `summary_en` (first 200 chars) used instead of generic title text
+- **Open Graph / Twitter description** — Same AI summary
+- **JSON-LD `articleBody`** — Full summary for structured data
+- **Visible content** — Summary rendered in `NewsDetail` component between article card and comments
+
+```typescript
+const summary = getNewsSummary(newsId);
+const description = summary?.summary_en
+  ? summary.summary_en.slice(0, 200)
+  : `${news.title} - Read more from ${news.source_name}`;
+```
 
 ### Root Layout Metadata
 
@@ -316,7 +352,6 @@ GOOGLE_SITE_VERIFICATION=your-code
 
 ## Future Improvements
 
-- JSON-LD structured data for articles
 - AMP pages for mobile
 - Breadcrumb schema
 - News sitemap (for Google News)

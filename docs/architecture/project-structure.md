@@ -6,14 +6,14 @@
 sarawak-news/
 ├── app/                    # Next.js App Router (pages + API)
 │   ├── layout.tsx          # Root layout (SEO metadata, providers)
-│   ├── page.tsx            # Home page (/)
+│   ├── page.tsx            # Home page (/) — Server Component, fetches news from DB
 │   ├── globals.css         # Global styles
 │   ├── robots.ts           # SEO robots.txt generator
 │   ├── sitemap.ts          # SEO dynamic sitemap
 │   │
 │   ├── news/               # News detail pages
 │   │   └── [id]/
-│   │       └── page.tsx    # News detail + comments + SEO
+│   │       └── page.tsx    # News detail + AI summary + comments + SEO
 │   │
 │   ├── auth/               # User authentication pages
 │   │   ├── login/
@@ -94,7 +94,8 @@ sarawak-news/
 │   ├── Header.tsx          # Top navigation bar
 │   ├── NewsList.tsx        # List of news items
 │   ├── NewsItem.tsx        # Single news item row
-│   ├── NewsDetail.tsx      # News detail client component
+│   ├── HomeClient.tsx      # Home page client component (hydrates SSR data)
+│   ├── NewsDetail.tsx      # News detail client component (with AI summary)
 │   ├── LanguageSwitcher.tsx # EN/中文/BM toggle
 │   ├── LanguageProvider.tsx # Language state context
 │   ├── CommentSection.tsx  # Comment system
@@ -243,22 +244,24 @@ data/
 ### Home Page
 ```
 app/layout.tsx (providers, metadata)
-└── app/page.tsx (Home)
-    ├── Header
-    │   ├── LanguageSwitcher
-    │   ├── DarkModeToggle
-    │   └── SearchBar
-    ├── CategoryFilter
-    └── NewsList
-        └── NewsItem (× many)
-            └── ShareButtons
+└── app/page.tsx (Server Component — fetches news from DB)
+    └── HomeClient (Client Component — hydrates with SSR data)
+        ├── Header
+        │   ├── LanguageSwitcher
+        │   ├── DarkModeToggle
+        │   └── SearchBar
+        ├── CategoryFilter
+        └── NewsList
+            └── NewsItem (× many)
+                └── ShareButtons
 ```
 
 ### News Detail Page
 ```
-app/news/[id]/page.tsx (server component, SEO metadata)
-└── NewsDetail (client component)
+app/news/[id]/page.tsx (Server Component — SEO metadata + AI summary fetch)
+└── NewsDetail (Client Component)
     ├── ShareButtons
+    ├── AI Summary Section (language-aware)
     └── CommentSection
         └── Comments (recursive)
 ```

@@ -6,23 +6,13 @@ This document explains how data moves through the application.
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                          BROWSER                                 │
-│  ┌─────────────────────────────────────────────────────────┐   │
-│  │  React Components                                        │   │
-│  │  ┌────────┐  ┌────────────┐  ┌────────────────────────┐ │   │
-│  │  │ Header │  │ NewsList   │  │ State (useState)       │ │   │
-│  │  └────────┘  └────────────┘  │ - news[]               │ │   │
-│  │                              │ - lang                  │ │   │
-│  │                              │ - loading               │ │   │
-│  │                              └────────────────────────┘ │   │
-│  └─────────────────────────────────────────────────────────┘   │
-│                              │ fetch()                          │
-└──────────────────────────────│──────────────────────────────────┘
-                               ▼
-┌─────────────────────────────────────────────────────────────────┐
 │                       SERVER (Next.js)                           │
 │  ┌─────────────────────────────────────────────────────────┐   │
-│  │  API Routes                                              │   │
+│  │  Server Components (SSR)                                 │   │
+│  │  app/page.tsx     → getAllNews() → passes to HomeClient  │   │
+│  │  app/news/[id]    → getNewsById() + getNewsSummary()     │   │
+│  ├─────────────────────────────────────────────────────────┤   │
+│  │  API Routes (client-side interactions)                   │   │
 │  │  /api/news      → getAllNews()                          │   │
 │  │  /api/refresh   → fetchAllFeeds() → addNews()           │   │
 │  │  /api/news/[id]/click → incrementClicks()               │   │
@@ -34,61 +24,71 @@ This document explains how data moves through the application.
 │  │  data/news.db                                            │   │
 │  └─────────────────────────────────────────────────────────┘   │
 └─────────────────────────────────────────────────────────────────┘
+                               │ HTML + props
+                               ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                          BROWSER                                 │
+│  ┌─────────────────────────────────────────────────────────┐   │
+│  │  Client Components (hydrate with SSR data)               │   │
+│  │  ┌────────────┐  ┌────────────┐  ┌──────────────────┐  │   │
+│  │  │ HomeClient │  │ NewsList   │  │ State (useState)  │  │   │
+│  │  └────────────┘  └────────────┘  │ - news[] (SSR)    │  │   │
+│  │                                  │ - lang             │  │   │
+│  │                                  │ - loading: false   │  │   │
+│  │                                  └──────────────────┘  │   │
+│  └─────────────────────────────────────────────────────────┘   │
+│                    │ fetch() for search, pagination, refresh     │
+└────────────────────│────────────────────────────────────────────┘
+                     ▼ (API routes used for client-side interactions)
 ```
 
-## Flow 1: Loading News on Page Load
+## Flow 1: Loading News on Page Load (Server-Side Rendered)
 
 ```
-1. User opens website
+1. User/crawler requests homepage
    │
-2. React component mounts (useEffect)
+2. Server Component (app/page.tsx) runs on server
    │
-3. fetch('/api/news')
+3. Calls getAllNews(1, 20) directly from lib/db.ts
    │
-4. API route calls getAllNews()
+4. SQLite returns news rows, ranked by score
    │
-5. SQLite returns all news rows
+5. Server renders HTML with full news content
    │
-6. API calculates ranking scores
+6. HTML sent to browser (crawlers see real content)
    │
-7. Returns sorted JSON array
+7. HomeClient hydrates with SSR data (no loading spinner)
    │
-8. React updates state: setNews(data.news)
-   │
-9. UI re-renders with news list
+8. Client-side: auto-refresh countdown starts, interactivity enabled
 ```
 
 **Code trace:**
 
 ```typescript
-// app/page.tsx
-useEffect(() => {
-  fetchNews();  // Step 2
-}, []);
+// app/page.tsx (Server Component — no 'use client')
+import { getAllNews, getMetadata, NEWS_CATEGORIES } from '@/lib/db';
+import HomeClient from '@/components/HomeClient';
 
-const fetchNews = async () => {
-  const response = await fetch('/api/news');  // Step 3
-  const data = await response.json();
-  setNews(data.news);  // Step 8
-};
-```
-
-```typescript
-// app/api/news/route.ts
-export async function GET() {
-  const news = getAllNews();  // Step 4
-  return NextResponse.json({ news });  // Step 7
+export default function Home() {
+  const { news, total, totalPages } = getAllNews(1, 20);  // Step 3
+  const lastRefresh = getMetadata('last_refresh');
+  return (
+    <HomeClient
+      initialNews={news}               // Step 5: passed as props
+      initialPagination={{ page: 1, limit: 20, total, totalPages, hasMore: totalPages > 1 }}
+      initialCategories={NEWS_CATEGORIES}
+      initialLastRefresh={lastRefresh}
+    />
+  );
 }
 ```
 
 ```typescript
-// lib/db.ts
-export function getAllNews(): NewsItem[] {
-  const news = db.prepare('SELECT * FROM news').all();  // Step 5
-  return news
-    .map(item => ({ ...item, score: calculateScore(...) }))  // Step 6
-    .sort((a, b) => b.score - a.score);
-}
+// components/HomeClient.tsx ('use client')
+// Hydrates with SSR data — no initial fetch needed
+const [news, setNews] = useState(initialNews);       // Pre-populated
+const [loading, setLoading] = useState(false);        // No loading spinner
+// API routes still used for: search, pagination, category filter, auto-refresh
 ```
 
 ## Flow 2: Clicking Refresh Button
@@ -225,20 +225,21 @@ translations['en'].title  // "Sarawak News"
 We use React's built-in `useState` (no Redux/Context needed for this size app):
 
 ```typescript
-// app/page.tsx
-const [news, setNews] = useState<NewsData[]>([]);    // News articles
-const [loading, setLoading] = useState(true);         // Loading state
-const [refreshing, setRefreshing] = useState(false);  // Refresh button
-const [lang, setLang] = useState<Language>('en');     // Current language
+// components/HomeClient.tsx
+const [news, setNews] = useState<NewsData[]>(initialNews);  // Pre-populated from SSR
+const [loading, setLoading] = useState(false);               // No initial loading
+const [lang] = useLanguage();                                // From LanguageProvider context
 ```
 
 **State is passed down via props:**
 ```
-page.tsx (state lives here)
-├── Header (receives: lang, onLanguageChange, onRefresh)
-│   └── LanguageSwitcher (receives: lang, onLanguageChange)
-└── NewsList (receives: news, lang, onItemClick)
-    └── NewsItem (receives: individual news item props)
+app/page.tsx (Server Component — fetches data)
+└── HomeClient (Client Component — state lives here)
+    ├── Header (receives: lang, onLanguageChange)
+    │   └── LanguageSwitcher (receives: lang, onLanguageChange)
+    ├── CategoryFilter
+    └── NewsList (receives: news, lang, onItemClick)
+        └── NewsItem (receives: individual news item props)
 ```
 
 ## Optimistic Updates

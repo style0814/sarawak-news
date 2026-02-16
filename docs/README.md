@@ -111,8 +111,9 @@ docs/
 
 | File | Purpose |
 |------|---------|
-| `app/page.tsx` | Main news list page |
-| `app/news/[id]/page.tsx` | News detail + comments |
+| `app/page.tsx` | Home page Server Component (SSR news from DB) |
+| `components/HomeClient.tsx` | Home page Client Component (hydrates SSR data) |
+| `app/news/[id]/page.tsx` | News detail + AI summary + comments |
 | `app/pricing/page.tsx` | Features page (all free) |
 | `app/donate/page.tsx` | Donation page |
 | `app/ai-features/page.tsx` | AI feedback page |
