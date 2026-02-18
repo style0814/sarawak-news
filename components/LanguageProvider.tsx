@@ -46,9 +46,17 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
 
   // Initialize language on mount (use local storage first)
   useEffect(() => {
+    // Initial client-side hydration of persisted language.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setLang(getLocalLanguage());
     setIsInitialized(true);
   }, []);
+
+  // Persist language changes locally after initial hydration
+  useEffect(() => {
+    if (!isInitialized) return;
+    localStorage.setItem(STORAGE_KEY, lang);
+  }, [lang, isInitialized]);
 
   // Fetch user preferences from database when logged in
   useEffect(() => {
@@ -94,9 +102,6 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
     if (!VALID_LANGUAGES.includes(newLang)) return;
     setLang(newLang);
 
-    // Always save to localStorage for immediate use
-    localStorage.setItem(STORAGE_KEY, newLang);
-
     // If logged in, also save to database
     if (status === 'authenticated') {
       fetch('/api/preferences', {
@@ -108,11 +113,6 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
       });
     }
   }, [status]);
-
-  // Prevent hydration mismatch by not rendering until initialized
-  if (!isInitialized) {
-    return <>{children}</>;
-  }
 
   return (
     <LanguageContext.Provider value={{ lang, setLanguage }}>

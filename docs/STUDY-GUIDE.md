@@ -15,6 +15,8 @@ Read these first — everything else depends on them.
 | `tsconfig.json` | TypeScript config (`@/` path alias maps to project root) |
 | `.env.local` | Environment variables (API keys, secrets) — not in git |
 
+**Persistence note:** SQLite file path is controlled by `DATABASE_PATH` (default `./data/news.db`). In container hosting (e.g. Railway), use a persistent volume path like `/data/news.db` to avoid data loss on redeploy/restart.
+
 ### `lib/db.ts` — The heart of the backend
 
 This is the **single most important file**. Every feature reads/writes through here (~1800 lines).
@@ -61,7 +63,7 @@ These wrap every page. Understand them before reading any page component.
 
 - Sets global metadata (title, description, OG tags, favicon)
 - Wraps all children in `<Providers>` for session, theme, language
-- Includes global `<AdBanner>` for Google AdSense
+- Injects Google AdSense script in `<head>` when configured
 - Every page in the app renders inside this layout
 
 ### `components/Providers.tsx` — Provider stack
@@ -192,7 +194,7 @@ All backend endpoints live in `app/api/`. Each `route.ts` file exports `GET`, `P
 | `/api/search` | GET | Full-text search with pagination, category/source/date filters |
 | `/api/refresh` | POST | Trigger RSS feed fetch + title translation |
 | `/api/cron/refresh` | GET | Same as refresh but for cron jobs (requires Bearer token) |
-| `/api/translate` | POST | Translate a single title to zh/ms |
+| `/api/translate` | POST | Translate untranslated stored news titles to zh/ms |
 | `/api/cleanup` | POST | Remove old news articles |
 
 ### User Features
@@ -201,7 +203,7 @@ All backend endpoints live in `app/api/`. Each `route.ts` file exports `GET`, `P
 |-------|--------|-------------|
 | `/api/comments` | GET/POST | Get comments for a news item / Add a comment |
 | `/api/comments/[id]/like` | POST | Like or unlike a comment |
-| `/api/bookmarks` | GET/POST/DELETE | User bookmarks CRUD |
+| `/api/bookmarks` | GET/POST | Fetch bookmarks + toggle bookmark |
 | `/api/preferences` | GET/POST | User language/theme preferences |
 | `/api/user/profile` | GET/PUT | Read or update user profile |
 | `/api/user/comments` | GET | User's comment history |
@@ -238,10 +240,10 @@ All backend endpoints live in `app/api/`. Each `route.ts` file exports `GET`, `P
 **`lib/rss.ts`** — RSS feed engine:
 - Database-driven feed list (managed via admin panel)
 - `fetchAllFeeds()` — Fetches all active RSS feeds, filters for Sarawak-related articles, inserts into DB
-- `translateUntranslatedNews()` — Finds news without zh/ms titles, translates them via Google Translate
+- `translateUntranslatedNews()` — Finds news without zh/ms titles, translates them via MyMemory API
 - Called by `/api/refresh` and `/api/cron/refresh`
 
-**`lib/translate.ts`** — Google Translate API wrapper. `translateTitle(title, targetLang)` returns translated string
+**`lib/translate.ts`** — MyMemory translation API wrapper used for title translation
 
 **`lib/articleExtractor.ts`** — Fetches article HTML from source URL, strips ads/scripts/navigation, extracts main text content. Used by `/api/summary` to provide article body to Groq AI
 
@@ -278,14 +280,14 @@ All backend endpoints live in `app/api/`. Each `route.ts` file exports `GET`, `P
 
 | Tab | What It Shows |
 |-----|-------------|
-| Dashboard | Stats cards, Recharts analytics (daily activity, click trends, sources, categories) |
-| Monitoring | Real-time system metrics, health indicators |
-| Analytics | Detailed traffic analytics and engagement data |
+| Dashboard | Stats cards, RSS refresh controls, top news/sources, and summary charts |
+| Analytics | Search analytics, source/category engagement, user activity metrics |
 | Users | User management table (toggle admin, delete) |
 | News | News management with search/filter/delete |
 | Comments | Moderation tools (flag, hide, delete comments) |
 | Errors | Error logs with charts and resolution workflow |
 | RSS Feeds | Add, enable/disable, delete RSS feed sources |
+| Payments | Payment verification queue and subscription stats |
 | Audit Log | Admin action history for accountability |
 
 **`components/charts/DashboardCharts.tsx`** — Recharts-based analytics visualizations
@@ -318,7 +320,7 @@ All backend endpoints live in `app/api/`. Each `route.ts` file exports `GET`, `P
 
 **`app/robots.ts`** — Generates `/robots.txt`. Allows `/`, disallows `/admin/`, `/api/`, `/auth/`
 **`app/sitemap.ts`** — Dynamic XML sitemap with all news article URLs + static pages
-**`app/opengraph-image/route.tsx`** — Dynamic OG image generation for social sharing
+**`app/opengraph-image.tsx`** — Dynamic OG image generation for social sharing
 
 ### Error Tracking
 

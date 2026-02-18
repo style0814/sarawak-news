@@ -23,7 +23,7 @@ Frontend (React)  ──HTTP Request──►  API Route  ──Query──►  
 | POST | `/api/news/[id]/tts-listen` | Track TTS listens |
 | POST | `/api/refresh` | Fetch new RSS articles |
 | GET | `/api/cron/refresh` | Cron-triggered refresh (Bearer token auth) |
-| POST | `/api/translate` | Translate article titles |
+| POST | `/api/translate` | Translate untranslated stored article titles |
 | POST | `/api/cleanup` | Clean up old articles |
 
 ### Search Endpoints
@@ -37,7 +37,7 @@ Frontend (React)  ──HTTP Request──►  API Route  ──Query──►  
 | Method | Endpoint | Purpose |
 |--------|----------|---------|
 | POST | `/api/summary` | Generate AI summary via Groq API |
-| POST | `/api/tts` | Generate text-to-speech audio |
+| POST | `/api/tts` | Returns browser-TTS guidance (server TTS not used) |
 | POST | `/api/feedback` | Submit AI feature feedback |
 
 ### Comment Endpoints
@@ -56,8 +56,7 @@ Frontend (React)  ──HTTP Request──►  API Route  ──Query──►  
 | PUT | `/api/user/profile` | Update profile or password |
 | GET | `/api/user/comments` | Get user's comment history |
 | GET | `/api/bookmarks` | Get user's bookmarks |
-| POST | `/api/bookmarks` | Add bookmark |
-| DELETE | `/api/bookmarks?newsId=X` | Remove bookmark |
+| POST | `/api/bookmarks` | Toggle bookmark add/remove |
 | GET | `/api/preferences` | Get user preferences |
 | POST | `/api/preferences` | Save user preferences |
 
@@ -103,7 +102,6 @@ Frontend (React)  ──HTTP Request──►  API Route  ──Query──►  
 - `page` - Page number (default: 1)
 - `limit` - Items per page (default: 20)
 - `category` - Filter by category
-- `source` - Filter by source
 
 **Response:**
 ```json
@@ -150,10 +148,17 @@ Frontend (React)  ──HTTP Request──►  API Route  ──Query──►  
 ```json
 {
   "news": [...],
-  "total": 45,
-  "totalPages": 3,
-  "sources": ["Borneo Post", "Dayak Daily"],
-  "categories": ["politics", "business"]
+  "pagination": {
+    "page": 1,
+    "limit": 20,
+    "total": 45,
+    "totalPages": 3,
+    "hasMore": true
+  },
+  "filters": {
+    "sources": ["Borneo Post", "Dayak Daily"],
+    "categories": ["politics", "business"]
+  }
 }
 ```
 
@@ -233,7 +238,7 @@ Frontend (React)  ──HTTP Request──►  API Route  ──Query──►  
 }
 ```
 
-### GET/POST/DELETE /api/bookmarks
+### GET/POST /api/bookmarks
 
 **GET - List bookmarks:**
 ```json
@@ -250,14 +255,9 @@ Frontend (React)  ──HTTP Request──►  API Route  ──Query──►  
 }
 ```
 
-**POST - Add bookmark:**
+**POST - Toggle bookmark:**
 ```json
-{ "newsId": 123 }
-```
-
-**DELETE - Remove bookmark:**
-```
-DELETE /api/bookmarks?newsId=123
+{ "news_id": 123 }
 ```
 
 ---
@@ -269,7 +269,7 @@ DELETE /api/bookmarks?newsId=123
 Fetch admin dashboard data. Requires admin session cookie.
 
 **Query Parameters:**
-- `tab`: `dashboard` | `users` | `news` | `comments` | `errors` | `feeds`
+- `tab`: `dashboard` | `users` | `news` | `comments` | `errors` | `feeds` | `payments` | `analytics` | `audit` | `error-count` | `moderation-config`
 - `page`: Page number (for paginated tabs)
 - `search`: Search term (for news)
 - `source`: Filter by source (for news)

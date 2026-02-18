@@ -1,13 +1,37 @@
 import Database from 'better-sqlite3';
+import fs from 'fs';
 import path from 'path';
 import bcrypt from 'bcryptjs';
 
-const dbPath = path.join(process.cwd(), 'data', 'news.db');
+function resolveDbPath(): string {
+  const configuredPath = process.env.DATABASE_PATH?.trim();
+
+  if (!configuredPath) {
+    return path.join(process.cwd(), 'data', 'news.db');
+  }
+
+  if (configuredPath === ':memory:') {
+    return configuredPath;
+  }
+
+  if (path.isAbsolute(configuredPath)) {
+    return configuredPath;
+  }
+
+  return path.join(process.cwd(), configuredPath);
+}
+
+const dbPath = resolveDbPath();
 
 let db: Database.Database | null = null;
 
 function getDb(): Database.Database {
   if (!db) {
+    if (dbPath !== ':memory:') {
+      const dbDir = path.dirname(dbPath);
+      fs.mkdirSync(dbDir, { recursive: true });
+    }
+
     db = new Database(dbPath);
     db.pragma('journal_mode = WAL');
     initializeDb(db);

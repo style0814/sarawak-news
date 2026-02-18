@@ -39,6 +39,8 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   // Initialize theme on mount (use local storage first)
   useEffect(() => {
     const initialTheme = getLocalTheme();
+    // Initial client-side hydration of persisted theme.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setIsDark(initialTheme);
     document.documentElement.classList.toggle('dark', initialTheme);
     setIsInitialized(true);
@@ -87,10 +89,9 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
 
   // Sync theme changes to DOM and localStorage
   useEffect(() => {
-    if (isInitialized) {
-      document.documentElement.classList.toggle('dark', isDark);
-      localStorage.setItem(STORAGE_KEY, isDark ? 'dark' : 'light');
-    }
+    if (!isInitialized) return;
+    document.documentElement.classList.toggle('dark', isDark);
+    localStorage.setItem(STORAGE_KEY, isDark ? 'dark' : 'light');
   }, [isDark, isInitialized]);
 
   const toggleTheme = useCallback(() => {
@@ -108,11 +109,6 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
       });
     }
   }, [isDark, status]);
-
-  // Prevent hydration mismatch
-  if (!isInitialized) {
-    return <>{children}</>;
-  }
 
   return (
     <ThemeContext.Provider value={{ isDark, toggleTheme }}>

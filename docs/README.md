@@ -26,7 +26,7 @@ A Sarawak news aggregator with real-time ranking, multi-language support, commun
 - **AI Feedback Page** - Collect user feedback on AI features
 
 ### Admin Features
-- **Admin Panel** - 6-tab dashboard with analytics charts
+- **Admin Panel** - 9-tab dashboard with analytics, moderation, payments, and audit log
 - **Error Monitoring** - Real-time error tracking with charts
 - **User Management** - Manage users
 
@@ -166,7 +166,7 @@ docs/
 | GET | /api/search | Search with filters |
 | POST | /api/refresh | Fetch RSS feeds |
 | GET | /api/cron/refresh | Cron-triggered refresh (Bearer token) |
-| POST | /api/translate | Translate titles |
+| POST | /api/translate | Translate untranslated stored titles |
 | POST | /api/cleanup | Remove old articles |
 | GET | /api/comments?newsId=X | Get comments |
 | POST | /api/comments | Add comment |
@@ -180,8 +180,7 @@ docs/
 | PUT | /api/user/profile | Update profile |
 | GET | /api/user/comments | Get comment history |
 | GET | /api/bookmarks | Get bookmarks |
-| POST | /api/bookmarks | Add bookmark |
-| DELETE | /api/bookmarks | Remove bookmark |
+| POST | /api/bookmarks | Toggle bookmark add/remove |
 | GET/POST | /api/preferences | User language/theme preferences |
 | POST | /api/summary | Generate AI summary |
 | POST | /api/tts | Generate text-to-speech |
@@ -209,11 +208,14 @@ docs/
 ## Admin Dashboard Tabs
 
 1. **Dashboard** - Overview stats, analytics charts, RSS refresh
-2. **Users** - Manage users, toggle admin status
-3. **News** - Search, filter, delete articles
-4. **Comments** - Moderation (flag, hide, delete)
-5. **Errors** - Error tracking, charts, notifications
-6. **RSS Feeds** - Add, enable/disable, delete feeds
+2. **Analytics** - Search/engagement analytics views
+3. **Users** - Manage users, toggle admin status
+4. **News** - Search, filter, delete articles
+5. **Comments** - Moderation (flag, hide, delete)
+6. **Errors** - Error tracking, charts, notifications
+7. **RSS Feeds** - Add, enable/disable, delete feeds
+8. **Payments** - Verify payments and review subscription stats
+9. **Audit Log** - Admin action history
 
 ## Theme Colors
 
@@ -245,12 +247,35 @@ ADMIN_USERNAME=superadmin
 ADMIN_PASSWORD_HASH=bcrypt-hash
 ADMIN_SESSION_SECRET=random-string
 
-# Optional
+# Database path
+# Local: ./data/news.db
+# Railway with persistent volume: /data/news.db
 DATABASE_PATH=./data/news.db
-GOOGLE_TRANSLATE_API_KEY=your-key
+
+# Optional
 SENTRY_DSN=your-sentry-dsn
 NEXT_PUBLIC_SITE_URL=https://your-domain.com
 ```
+
+## Data Persistence (Important)
+
+This project uses SQLite (`better-sqlite3`) and stores all user/news/comment data in a file.
+
+- Local development usually writes to `./data/news.db`
+- Railway/Fly/containers need a **persistent volume** and `DATABASE_PATH` pointed to that mount
+- Without persistent disk, data appears to work but is lost after restart/redeploy
+
+### Railway Setup Checklist
+
+1. Add a persistent volume and mount it (for example at `/data`)
+2. Set `DATABASE_PATH=/data/news.db`
+3. Redeploy once after setting variable/mount
+4. Verify registration creates rows in `users` and survives redeploy/restart
+
+### Why Data Can Seem Inconsistent
+
+- News may look present because feeds re-fetch and refill `news` table
+- User accounts/comments/bookmarks are not auto-restored from RSS, so they look "lost" if DB file is ephemeral
 
 ## Payment Methods
 
