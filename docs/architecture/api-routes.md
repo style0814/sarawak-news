@@ -19,7 +19,10 @@ Frontend (React)  ──HTTP Request──►  API Route  ──Query──►  
 | GET | `/api/news/[id]` | Get single news item |
 | POST | `/api/news/[id]` | Increment clicks |
 | POST | `/api/news/[id]/click` | Record a click (alternative) |
+| POST | `/api/news/[id]/summary-view` | Track AI summary views |
+| POST | `/api/news/[id]/tts-listen` | Track TTS listens |
 | POST | `/api/refresh` | Fetch new RSS articles |
+| GET | `/api/cron/refresh` | Cron-triggered refresh (Bearer token auth) |
 | POST | `/api/translate` | Translate article titles |
 | POST | `/api/cleanup` | Clean up old articles |
 
@@ -28,6 +31,14 @@ Frontend (React)  ──HTTP Request──►  API Route  ──Query──►  
 | Method | Endpoint | Purpose |
 |--------|----------|---------|
 | GET | `/api/search` | Advanced search with filters |
+
+### AI Feature Endpoints
+
+| Method | Endpoint | Purpose |
+|--------|----------|---------|
+| POST | `/api/summary` | Generate AI summary via Groq API |
+| POST | `/api/tts` | Generate text-to-speech audio |
+| POST | `/api/feedback` | Submit AI feature feedback |
 
 ### Comment Endpoints
 
@@ -50,6 +61,14 @@ Frontend (React)  ──HTTP Request──►  API Route  ──Query──►  
 | GET | `/api/preferences` | Get user preferences |
 | POST | `/api/preferences` | Save user preferences |
 
+### Payment Endpoints
+
+| Method | Endpoint | Purpose |
+|--------|----------|---------|
+| GET | `/api/payment` | Get user's payment history |
+| POST | `/api/payment` | Submit payment with reference/proof |
+| GET | `/api/subscription` | Check user's subscription status |
+
 ### Auth Endpoints (NextAuth)
 
 | Method | Endpoint | Purpose |
@@ -59,6 +78,7 @@ Frontend (React)  ──HTTP Request──►  API Route  ──Query──►  
 | POST | `/api/auth/signout` | Sign out |
 | GET | `/api/auth/providers` | List auth providers |
 | POST | `/api/auth/register` | Register new user |
+| POST | `/api/setup` | One-time admin account setup (fresh deploys) |
 
 ### Admin Endpoints
 

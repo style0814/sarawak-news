@@ -16,7 +16,8 @@ A Sarawak news aggregator with real-time ranking, multi-language support, commun
 - **Bookmarks** - Save articles for later reading
 - **User Profile** - Edit profile, change password, view stats
 - **Social Sharing** - Share to Facebook, Twitter, WhatsApp, etc.
-- **SEO Optimized** - Dynamic metadata, sitemap, robots.txt
+- **Server-Side Rendering** - Homepage and detail pages SSR for crawlers
+- **SEO Optimized** - Dynamic metadata, sitemap, robots.txt, JSON-LD
 - **Dark Mode** - Toggle between light and dark themes
 - **Cross-Tab Sync** - Language and theme sync across browser tabs
 - **Audio TTS** - Listen to news titles (Text-to-Speech)
@@ -60,6 +61,7 @@ Open http://localhost:3000
 ```
 docs/
 ├── README.md                    # This file
+├── STUDY-GUIDE.md               # Full codebase study guide (phased)
 │
 ├── tech-stack/                  # Why we use each technology
 │   ├── nextjs.md               # Next.js App Router
@@ -70,7 +72,7 @@ docs/
 ├── architecture/               # How the code is organized
 │   ├── project-structure.md   # Folder layout
 │   ├── api-routes.md          # API endpoints
-│   └── data-flow.md           # How data moves
+│   └── data-flow.md           # How data moves (SSR + client)
 │
 └── features/                   # How each feature works
     ├── news-ranking.md        # Ranking algorithm
@@ -80,13 +82,16 @@ docs/
     ├── title-translation.md   # Title translation API
     ├── comments.md            # Nested comment system
     ├── authentication.md      # User login/register
-    ├── admin-panel.md         # Admin dashboard (6 tabs)
+    ├── admin-panel.md         # Admin dashboard (9 tabs)
     ├── error-monitoring.md    # Error tracking & charts
     ├── search.md              # Advanced search with filters
     ├── user-profile.md        # User profile page
     ├── bookmarks.md           # Article bookmarking
     ├── share-buttons.md       # Social sharing
-    ├── seo.md                 # SEO optimization
+    ├── seo.md                 # SEO + SSR optimization
+    ├── dark-mode.md           # Dark/light theme system
+    ├── adsense.md             # Google AdSense integration
+    ├── static-pages.md        # About, Privacy, Terms pages
     ├── ai-summary.md          # AI-powered summaries (Groq)
     ├── audio-tts.md           # Text-to-Speech feature
     ├── listen-all.md          # Listen All News player
@@ -96,7 +101,9 @@ docs/
 
 ## Learning Path
 
-**Recommended reading order:**
+**For a complete phased study of the entire codebase, see [`STUDY-GUIDE.md`](./STUDY-GUIDE.md).**
+
+**Quick reading order:**
 
 1. **tech-stack/** - Understand the tools
    - Start with `nextjs.md` and `typescript.md`
@@ -154,9 +161,13 @@ docs/
 | GET | /api/news | Fetch ranked news |
 | GET | /api/news/[id] | Get single news item |
 | POST | /api/news/[id]/click | Record click |
+| POST | /api/news/[id]/summary-view | Track summary views |
+| POST | /api/news/[id]/tts-listen | Track TTS listens |
 | GET | /api/search | Search with filters |
 | POST | /api/refresh | Fetch RSS feeds |
+| GET | /api/cron/refresh | Cron-triggered refresh (Bearer token) |
 | POST | /api/translate | Translate titles |
+| POST | /api/cleanup | Remove old articles |
 | GET | /api/comments?newsId=X | Get comments |
 | POST | /api/comments | Add comment |
 | POST | /api/comments/[id]/like | Like comment |
@@ -171,8 +182,12 @@ docs/
 | GET | /api/bookmarks | Get bookmarks |
 | POST | /api/bookmarks | Add bookmark |
 | DELETE | /api/bookmarks | Remove bookmark |
+| GET/POST | /api/preferences | User language/theme preferences |
 | POST | /api/summary | Generate AI summary |
+| POST | /api/tts | Generate text-to-speech |
 | POST | /api/feedback | Submit AI feedback |
+| GET/POST | /api/payment | Payment history / submit payment |
+| GET | /api/subscription | Check subscription status |
 
 ### Auth
 
@@ -180,14 +195,15 @@ docs/
 |--------|----------|---------|
 | GET/POST | /api/auth/* | NextAuth endpoints |
 | POST | /api/auth/register | Register user |
+| POST | /api/setup | One-time admin setup (fresh deploy) |
 
 ### Admin
 
 | Method | Endpoint | Purpose |
 |--------|----------|---------|
-| GET | /api/admin | Dashboard data |
-| POST | /api/admin | Admin actions |
-| GET/POST/DELETE | /api/admin/auth | Admin login/logout |
+| GET | /api/admin | Dashboard data (tab param) |
+| POST | /api/admin | Admin actions (action param) |
+| GET/POST/DELETE | /api/admin/auth | Admin login/logout/session |
 | POST | /api/admin/delete | Delete content |
 
 ## Admin Dashboard Tabs
