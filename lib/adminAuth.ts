@@ -1,45 +1,78 @@
 import { cookies } from 'next/headers';
 import bcrypt from 'bcryptjs';
+import crypto from 'crypto';
 
-// Admin credentials - CHANGE THESE IN PRODUCTION!
-// Store in environment variables for production
 const ADMIN_USERNAME = process.env.ADMIN_USERNAME || 'superadmin';
-const ADMIN_PASSWORD_HASH = process.env.ADMIN_PASSWORD_HASH ||
-  // Default password: "Sarawak@Admin2024" - bcrypt hash
-  '$2a$10$X7VYKxQJh8Z5L9fZ5L9fZ5L9fZ5L9fZ5L9fZ5L9fZ5L9fZ5L9fZ5L';
-
-// Generate hash for password (run once to get hash for env variable)
-// bcrypt.hash('Sarawak@Admin2024', 10).then(console.log)
+const ADMIN_PASSWORD_HASH = process.env.ADMIN_PASSWORD_HASH?.trim() || '';
 
 const ADMIN_SESSION_NAME = 'admin_session';
-const ADMIN_SESSION_SECRET = process.env.ADMIN_SESSION_SECRET || 'sarawak-admin-secret-2024-change-in-production';
+const ADMIN_SESSION_SECRET = process.env.ADMIN_SESSION_SECRET?.trim() || process.env.AUTH_SECRET?.trim() || '';
+const ADMIN_SESSION_MAX_AGE_SECONDS = 60 * 60 * 8; // 8 hours
+
+function hasValidPasswordHash(): boolean {
+  if (!ADMIN_PASSWORD_HASH || ADMIN_PASSWORD_HASH === 'your-bcrypt-hash-here') {
+    return false;
+  }
+  return /^\$2[aby]\$\d{2}\$/.test(ADMIN_PASSWORD_HASH);
+}
+
+function hasValidSessionSecret(): boolean {
+  return ADMIN_SESSION_SECRET.length >= 16;
+}
 
 // Simple session token generation
 function generateSessionToken(): string {
-  const timestamp = Date.now().toString(36);
-  const random = Math.random().toString(36).substring(2, 15);
-  return `${timestamp}-${random}-${ADMIN_SESSION_SECRET.substring(0, 8)}`;
+  if (!hasValidSessionSecret()) {
+    throw new Error('Admin session secret is not configured');
+  }
+  const timestampMs = Date.now();
+  const nonce = crypto.randomBytes(16).toString('hex');
+  const payload = `${timestampMs}.${nonce}`;
+  const signature = crypto
+    .createHmac('sha256', ADMIN_SESSION_SECRET)
+    .update(payload)
+    .digest('base64url');
+  return `${payload}.${signature}`;
 }
 
 // Verify session token
 function isValidSessionToken(token: string): boolean {
-  if (!token) return false;
-  // Check if token contains our secret fragment
-  return token.includes(ADMIN_SESSION_SECRET.substring(0, 8));
+  if (!token || !hasValidSessionSecret()) return false;
+
+  const lastDot = token.lastIndexOf('.');
+  if (lastDot <= 0) return false;
+
+  const payload = token.slice(0, lastDot);
+  const signature = token.slice(lastDot + 1);
+  if (!payload || !signature) return false;
+
+  const expectedSignature = crypto
+    .createHmac('sha256', ADMIN_SESSION_SECRET)
+    .update(payload)
+    .digest('base64url');
+
+  const actualBuffer = Buffer.from(signature);
+  const expectedBuffer = Buffer.from(expectedSignature);
+  if (actualBuffer.length !== expectedBuffer.length) return false;
+  if (!crypto.timingSafeEqual(actualBuffer, expectedBuffer)) return false;
+
+  const [timestampRaw] = payload.split('.');
+  const timestampMs = Number(timestampRaw);
+  if (!Number.isFinite(timestampMs)) return false;
+  const ageMs = Date.now() - timestampMs;
+  return ageMs >= 0 && ageMs <= ADMIN_SESSION_MAX_AGE_SECONDS * 1000;
 }
 
 // Verify admin password
 export async function verifyAdminPassword(username: string, password: string): Promise<boolean> {
+  if (!hasValidPasswordHash()) {
+    return false;
+  }
+
   if (username !== ADMIN_USERNAME) {
     return false;
   }
 
-  // For default password, do direct comparison since we'll set proper hash
-  if (password === 'Sarawak@Admin2024') {
-    return true;
-  }
-
-  // For production with proper hash
   try {
     return await bcrypt.compare(password, ADMIN_PASSWORD_HASH);
   } catch {
@@ -49,6 +82,10 @@ export async function verifyAdminPassword(username: string, password: string): P
 
 // Create admin session
 export async function createAdminSession(): Promise<string> {
+  if (!hasValidSessionSecret()) {
+    throw new Error('Admin session secret is not configured');
+  }
+
   const token = generateSessionToken();
   const cookieStore = await cookies();
 
@@ -56,7 +93,7 @@ export async function createAdminSession(): Promise<string> {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
     sameSite: 'lax',
-    maxAge: 60 * 60 * 8, // 8 hours
+    maxAge: ADMIN_SESSION_MAX_AGE_SECONDS,
     path: '/'
   });
 
@@ -88,6 +125,10 @@ export async function clearAdminSession(): Promise<void> {
 // Get admin username for display
 export function getAdminUsername(): string {
   return ADMIN_USERNAME;
+}
+
+export function isAdminAuthConfigured(): boolean {
+  return hasValidPasswordHash() && hasValidSessionSecret();
 }
 
 // Get admin session info

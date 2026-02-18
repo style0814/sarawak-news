@@ -1,9 +1,9 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 
 // This API is no longer needed - using browser TTS instead
 // Keeping for future if we add cloud TTS later
 
-export async function POST(request: NextRequest) {
+export async function POST() {
   // Return message to use browser TTS
   return NextResponse.json(
     {

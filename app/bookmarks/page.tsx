@@ -20,7 +20,7 @@ interface NewsItem {
 }
 
 export default function BookmarksPage() {
-  const { data: session, status } = useSession();
+  const { status } = useSession();
   const router = useRouter();
   const { isDark } = useTheme();
   const { lang } = useLanguage();

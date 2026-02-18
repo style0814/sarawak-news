@@ -270,6 +270,16 @@ function initializeDb(database: Database.Database) {
     )
   `);
 
+  // API rate limiting table (fixed window counters)
+  database.exec(`
+    CREATE TABLE IF NOT EXISTS api_rate_limits (
+      key TEXT PRIMARY KEY,
+      window_start INTEGER NOT NULL,
+      count INTEGER NOT NULL DEFAULT 0,
+      updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+
   // Admin audit log table
   database.exec(`
     CREATE TABLE IF NOT EXISTS admin_audit_log (
@@ -324,6 +334,62 @@ export function setMetadata(key: string, value: string): void {
   `).run(key, value);
 }
 
+export interface RateLimitResult {
+  allowed: boolean;
+  remaining: number;
+  retryAfter: number;
+}
+
+export function consumeRateLimit(key: string, limit: number, windowSeconds: number): RateLimitResult {
+  const db = getDb();
+  const now = Math.floor(Date.now() / 1000);
+  const currentWindowStart = now - (now % windowSeconds);
+
+  const existing = db.prepare(`
+    SELECT window_start, count
+    FROM api_rate_limits
+    WHERE key = ?
+  `).get(key) as { window_start: number; count: number } | undefined;
+
+  if (!existing || existing.window_start !== currentWindowStart) {
+    db.prepare(`
+      INSERT INTO api_rate_limits (key, window_start, count, updated_at)
+      VALUES (?, ?, 1, CURRENT_TIMESTAMP)
+      ON CONFLICT(key) DO UPDATE SET
+        window_start = excluded.window_start,
+        count = excluded.count,
+        updated_at = CURRENT_TIMESTAMP
+    `).run(key, currentWindowStart);
+
+    return {
+      allowed: true,
+      remaining: Math.max(0, limit - 1),
+      retryAfter: windowSeconds
+    };
+  }
+
+  if (existing.count >= limit) {
+    return {
+      allowed: false,
+      remaining: 0,
+      retryAfter: Math.max(1, currentWindowStart + windowSeconds - now)
+    };
+  }
+
+  const newCount = existing.count + 1;
+  db.prepare(`
+    UPDATE api_rate_limits
+    SET count = ?, updated_at = CURRENT_TIMESTAMP
+    WHERE key = ?
+  `).run(newCount, key);
+
+  return {
+    allowed: true,
+    remaining: Math.max(0, limit - newCount),
+    retryAfter: Math.max(1, currentWindowStart + windowSeconds - now)
+  };
+}
+
 // ============ USER FUNCTIONS ============
 
 export interface User {
@@ -362,14 +428,21 @@ export async function verifyUser(usernameOrEmail: string, password: string): Pro
   const db = getDb();
   const user = db.prepare(`
     SELECT * FROM users WHERE username = ? OR email = ?
-  `).get(usernameOrEmail, usernameOrEmail) as (User & { password_hash: string }) | undefined;
+  `).get(usernameOrEmail, usernameOrEmail) as (User & { password_hash: string; is_banned?: number }) | undefined;
 
   if (!user) return null;
+  if (user.is_banned === 1) return null;
 
   const isValid = await bcrypt.compare(password, user.password_hash);
   if (!isValid) return null;
 
-  const { password_hash: _, ...userWithoutPassword } = user;
+  const userWithoutPassword = {
+    id: user.id,
+    username: user.username,
+    email: user.email,
+    display_name: user.display_name,
+    created_at: user.created_at
+  };
   return userWithoutPassword;
 }
 
@@ -559,6 +632,16 @@ export function addNews(news: {
 export function updateNewsTitles(id: number, titleZh: string, titleMs: string): void {
   const db = getDb();
   db.prepare('UPDATE news SET title_zh = ?, title_ms = ? WHERE id = ?').run(titleZh, titleMs, id);
+}
+
+export function getUntranslatedNews(limit: number = 100): NewsItem[] {
+  const db = getDb();
+  return db.prepare(`
+    SELECT * FROM news
+    WHERE title_zh IS NULL OR title_ms IS NULL
+    ORDER BY created_at DESC
+    LIMIT ?
+  `).all(limit) as NewsItem[];
 }
 
 export function getUntranslatedCount(): number {
@@ -933,9 +1016,26 @@ export function deleteComment(commentId: number): void {
   const db = getDb();
   const comment = db.prepare('SELECT news_id FROM comments WHERE id = ?').get(commentId) as { news_id: number } | undefined;
   if (comment) {
+    const subtreeCount = (db.prepare(`
+      WITH RECURSIVE subtree(id) AS (
+        SELECT id FROM comments WHERE id = ?
+        UNION ALL
+        SELECT c.id FROM comments c
+        JOIN subtree s ON c.parent_id = s.id
+      )
+      SELECT COUNT(*) as count FROM subtree
+    `).get(commentId) as { count: number }).count;
+
     db.prepare('DELETE FROM comment_likes WHERE comment_id = ?').run(commentId);
     db.prepare('DELETE FROM comments WHERE id = ?').run(commentId);
-    db.prepare('UPDATE news SET comment_count = comment_count - 1 WHERE id = ?').run(comment.news_id);
+    db.prepare(`
+      UPDATE news
+      SET comment_count = CASE
+        WHEN comment_count > ? THEN comment_count - ?
+        ELSE 0
+      END
+      WHERE id = ?
+    `).run(subtreeCount, subtreeCount, comment.news_id);
   }
 }
 
@@ -1707,8 +1807,9 @@ export function getAllPayments(page: number = 1, limit: number = 20, status?: st
 } {
   const db = getDb();
   const offset = (page - 1) * limit;
-  const whereClause = status && status !== 'all' ? `WHERE ps.status = '${status}'` : '';
-  const total = (db.prepare(`SELECT COUNT(*) as count FROM payment_submissions ps ${whereClause}`).get() as { count: number }).count;
+  const whereClause = status && status !== 'all' ? 'WHERE ps.status = ?' : '';
+  const params: string[] = status && status !== 'all' ? [status] : [];
+  const total = (db.prepare(`SELECT COUNT(*) as count FROM payment_submissions ps ${whereClause}`).get(...params) as { count: number }).count;
   const payments = db.prepare(`
     SELECT ps.*, u.username, u.email
     FROM payment_submissions ps
@@ -1716,7 +1817,7 @@ export function getAllPayments(page: number = 1, limit: number = 20, status?: st
     ${whereClause}
     ORDER BY ps.created_at DESC
     LIMIT ? OFFSET ?
-  `).all(limit, offset) as (PaymentSubmission & { username: string; email: string })[];
+  `).all(...params, limit, offset) as (PaymentSubmission & { username: string; email: string })[];
   return { payments, total, totalPages: Math.ceil(total / limit) };
 }
 

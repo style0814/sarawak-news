@@ -21,10 +21,7 @@ Frontend (React)  ──HTTP Request──►  API Route  ──Query──►  
 | POST | `/api/news/[id]/click` | Record a click (alternative) |
 | POST | `/api/news/[id]/summary-view` | Track AI summary views |
 | POST | `/api/news/[id]/tts-listen` | Track TTS listens |
-| POST | `/api/refresh` | Fetch new RSS articles |
 | GET | `/api/cron/refresh` | Cron-triggered refresh (Bearer token auth) |
-| POST | `/api/translate` | Translate untranslated stored article titles |
-| POST | `/api/cleanup` | Clean up old articles |
 
 ### Search Endpoints
 
@@ -83,6 +80,9 @@ Frontend (React)  ──HTTP Request──►  API Route  ──Query──►  
 
 | Method | Endpoint | Purpose |
 |--------|----------|---------|
+| POST | `/api/refresh` | Fetch RSS feeds (admin/cron secret protected) |
+| POST | `/api/translate` | Translate untranslated titles (admin/cron secret protected) |
+| POST | `/api/cleanup` | Clean up old articles (admin/cron secret protected) |
 | GET | `/api/admin?tab=X` | Get admin dashboard data |
 | POST | `/api/admin` | Admin actions |
 | GET | `/api/admin/auth` | Check admin session |
@@ -482,8 +482,9 @@ Without this, Next.js might cache GET responses. For real-time data, disable cac
 # GET request
 curl http://localhost:3000/api/news
 
-# POST request
-curl -X POST http://localhost:3000/api/refresh
+# POST request (admin/cron protected endpoint)
+curl -X POST http://localhost:3000/api/refresh \
+  -H "Authorization: Bearer $CRON_SECRET"
 
 # GET with query params
 curl "http://localhost:3000/api/search?q=election&category=politics"

@@ -159,8 +159,10 @@ export async function GET(request: NextRequest) {
   if (tab === 'payments') {
     const page = parseInt(searchParams.get('page') || '1', 10);
     const status = searchParams.get('status') || 'pending';
+    const allowedStatuses = ['all', 'pending', 'approved', 'rejected'];
+    const safeStatus = allowedStatuses.includes(status) ? status : 'pending';
 
-    const result = getAllPayments(page, 20, status === 'all' ? undefined : status);
+    const result = getAllPayments(page, 20, safeStatus === 'all' ? undefined : safeStatus);
     const stats = getSubscriptionStats();
 
     return NextResponse.json({

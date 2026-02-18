@@ -1,12 +1,20 @@
 import { NextResponse } from 'next/server';
 import { fetchAllFeeds, translateUntranslatedNews } from '@/lib/rss';
 import { logRssError, logApiError } from '@/lib/errorLogger';
-import { setMetadata } from '@/lib/db';
+import { getStats, setMetadata } from '@/lib/db';
+import { isCronOrAdminAuthorized } from '@/lib/apiAuth';
 
 export const dynamic = 'force-dynamic';
 
-export async function POST() {
+export async function POST(request: Request) {
   try {
+    const authorized = await isCronOrAdminAuthorized(request);
+
+    // Allow unauthenticated bootstrap only when database is empty.
+    if (!authorized && getStats().totalNews > 0) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     // Fetch new articles
     const result = await fetchAllFeeds();
 

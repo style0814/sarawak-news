@@ -3,12 +3,29 @@ import {
   verifyAdminPassword,
   createAdminSession,
   checkAdminSession,
-  clearAdminSession
+  clearAdminSession,
+  isAdminAuthConfigured
 } from '@/lib/adminAuth';
+import { rateLimitByIp } from '@/lib/rateLimit';
 
 // POST - Admin login
 export async function POST(request: NextRequest) {
   try {
+    const limit = rateLimitByIp(request, 'admin-login', 10, 15 * 60);
+    if (!limit.allowed) {
+      return NextResponse.json(
+        { error: 'Too many admin login attempts. Please try again later.' },
+        { status: 429, headers: { 'Retry-After': String(limit.retryAfter) } }
+      );
+    }
+
+    if (!isAdminAuthConfigured()) {
+      return NextResponse.json(
+        { error: 'Admin auth is not configured. Set ADMIN_PASSWORD_HASH and ADMIN_SESSION_SECRET.' },
+        { status: 503 }
+      );
+    }
+
     const { username, password } = await request.json();
 
     if (!username || !password) {

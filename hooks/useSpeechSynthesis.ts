@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 
 type VoiceGender = 'male' | 'female';
 type SupportedLanguage = 'en' | 'zh' | 'ms';
@@ -110,7 +110,6 @@ export function useSpeechSynthesis(options: UseSpeechSynthesisOptions = {}): Use
   const [isPaused, setIsPaused] = useState(false);
   const [gender, setGender] = useState<VoiceGender>(options.gender || 'female');
   const [language, setLanguage] = useState<SupportedLanguage>(options.language || 'en');
-  const [currentVoice, setCurrentVoice] = useState<SpeechSynthesisVoice | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
@@ -146,9 +145,8 @@ export function useSpeechSynthesis(options: UseSpeechSynthesisOptions = {}): Use
   }, [isSupported]);
 
   // Select best voice based on language, gender, and quality
-  useEffect(() => {
-    if (voices.length === 0) return;
-
+  const currentVoice = useMemo(() => {
+    if (voices.length === 0) return null;
     const langCodes = languageCodes[language];
 
     // Filter voices by language
@@ -179,15 +177,7 @@ export function useSpeechSynthesis(options: UseSpeechSynthesisOptions = {}): Use
       .map(voice => ({ voice, quality: getVoiceQuality(voice) }))
       .sort((a, b) => b.quality - a.quality);
 
-    // Select the highest quality voice
-    const selectedVoice = sortedVoices.length > 0 ? sortedVoices[0].voice : null;
-
-    // Log selected voice for debugging
-    if (selectedVoice) {
-      console.log('Selected voice:', selectedVoice.name, 'Quality:', getVoiceQuality(selectedVoice));
-    }
-
-    setCurrentVoice(selectedVoice);
+    return sortedVoices.length > 0 ? sortedVoices[0].voice : null;
   }, [voices, language, gender]);
 
   // Speak text

@@ -1,11 +1,17 @@
 import { NextResponse } from 'next/server';
 import { deleteOldNews } from '@/lib/db';
+import { isCronOrAdminAuthorized } from '@/lib/apiAuth';
 
 export const dynamic = 'force-dynamic';
 
 // Delete news older than 30 days
-export async function POST() {
+export async function POST(request: Request) {
   try {
+    const authorized = await isCronOrAdminAuthorized(request);
+    if (!authorized) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     const deleted = deleteOldNews(30);
     return NextResponse.json({
       success: true,

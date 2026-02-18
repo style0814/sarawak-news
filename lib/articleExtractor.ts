@@ -3,41 +3,6 @@
  * Fetches and extracts main article text from news URLs
  */
 
-// Common selectors for article content across news sites
-const CONTENT_SELECTORS = [
-  'article',
-  '[class*="article-content"]',
-  '[class*="article-body"]',
-  '[class*="post-content"]',
-  '[class*="entry-content"]',
-  '[class*="story-body"]',
-  '[class*="news-content"]',
-  '.content-body',
-  '.article-text',
-  'main',
-];
-
-// Elements to remove (ads, navigation, etc.)
-const REMOVE_SELECTORS = [
-  'script',
-  'style',
-  'nav',
-  'header',
-  'footer',
-  'aside',
-  'iframe',
-  'form',
-  '[class*="advertisement"]',
-  '[class*="sidebar"]',
-  '[class*="comment"]',
-  '[class*="social"]',
-  '[class*="share"]',
-  '[class*="related"]',
-  '[class*="recommended"]',
-  '[id*="comment"]',
-  '[id*="sidebar"]',
-];
-
 /**
  * Extract text content from HTML string
  */

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createUser } from '@/lib/db';
+import { rateLimitByIp, rateLimitByKey } from '@/lib/rateLimit';
 
 // Input validation
 function validateInput(data: { username: string; email: string; password: string; display_name: string }) {
@@ -40,6 +41,14 @@ function sanitize(str: string): string {
 
 export async function POST(request: NextRequest) {
   try {
+    const ipLimit = rateLimitByIp(request, 'register', 10, 15 * 60);
+    if (!ipLimit.allowed) {
+      return NextResponse.json(
+        { error: 'Too many registration attempts. Please try again later.' },
+        { status: 429, headers: { 'Retry-After': String(ipLimit.retryAfter) } }
+      );
+    }
+
     const body = await request.json();
     const { username, email, password, display_name } = body;
 
@@ -56,6 +65,22 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { error: errors.join(', ') },
         { status: 400 }
+      );
+    }
+
+    const emailLimit = rateLimitByKey('register-email', email, 3, 60 * 60);
+    if (!emailLimit.allowed) {
+      return NextResponse.json(
+        { error: 'Too many attempts for this email. Please try again later.' },
+        { status: 429, headers: { 'Retry-After': String(emailLimit.retryAfter) } }
+      );
+    }
+
+    const usernameLimit = rateLimitByKey('register-username', username, 3, 60 * 60);
+    if (!usernameLimit.allowed) {
+      return NextResponse.json(
+        { error: 'Too many attempts for this username. Please try again later.' },
+        { status: 429, headers: { 'Retry-After': String(usernameLimit.retryAfter) } }
       );
     }
 

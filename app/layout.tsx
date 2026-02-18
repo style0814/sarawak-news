@@ -131,7 +131,6 @@ export default function RootLayout({
         />
         {/* Google AdSense Script - plain script tag for crawler compatibility */}
         {ADSENSE_PUB_ID && (
-          // eslint-disable-next-line @next/next/no-sync-scripts
           <script
             async
             src={`https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-${ADSENSE_PUB_ID}`}

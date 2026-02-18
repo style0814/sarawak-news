@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useSession } from 'next-auth/react';
 import { useSpeechSynthesis } from '@/hooks/useSpeechSynthesis';
-import { Language, translations } from '@/lib/i18n';
+import { Language } from '@/lib/i18n';
 import { useTheme } from './ThemeProvider';
 
 interface NewsItem {
@@ -24,23 +24,29 @@ const LISTENED_NEWS_KEY = 'sarawak_news_listened';
 export default function ListenAllPlayer({ news, lang }: ListenAllPlayerProps) {
   const { data: session } = useSession();
   const { isDark } = useTheme();
-  const t = translations[lang];
-
-  // Mounted state to avoid hydration mismatch
-  const [mounted, setMounted] = useState(false);
 
   // State
   const [isExpanded, setIsExpanded] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [listenedNews, setListenedNews] = useState<Set<number>>(new Set());
-  const [summaries, setSummaries] = useState<Map<number, string>>(new Map());
+  const [listenedNews, setListenedNews] = useState<Set<number>>(() => {
+    if (typeof window === 'undefined') return new Set();
+    const stored = localStorage.getItem(LISTENED_NEWS_KEY);
+    if (!stored) return new Set();
+    try {
+      return new Set(JSON.parse(stored));
+    } catch {
+      return new Set();
+    }
+  });
   const [isLoadingSummary, setIsLoadingSummary] = useState(false);
   const [playMode, setPlayMode] = useState<'all' | 'unlistened'>('unlistened');
   const [error, setError] = useState<string | null>(null);
+  const [playlist, setPlaylist] = useState<NewsItem[]>([]);
 
   const playlistRef = useRef<NewsItem[]>([]);
   const isPlayingRef = useRef(false);
+  const summariesRef = useRef<Map<number, string>>(new Map());
 
   // TTS hook
   const {
@@ -51,37 +57,22 @@ export default function ListenAllPlayer({ news, lang }: ListenAllPlayerProps) {
     setLanguage: setTTSLang
   } = useSpeechSynthesis({ language: lang });
 
-  // Set mounted after hydration
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
   // Sync TTS language and clear summary cache when language changes
   useEffect(() => {
     setTTSLang(lang);
     // Clear cached summaries when language changes (they're language-specific)
-    setSummaries(new Map());
+    summariesRef.current.clear();
     // Stop playback if language changes mid-play
     if (isPlayingRef.current) {
       stop();
-      setIsPlaying(false);
       isPlayingRef.current = false;
-      setCurrentIndex(0);
+      queueMicrotask(() => {
+        setIsPlaying(false);
+        setCurrentIndex(0);
+        setPlaylist([]);
+      });
     }
   }, [lang, setTTSLang, stop]);
-
-  // Load listened news from localStorage
-  useEffect(() => {
-    const stored = localStorage.getItem(LISTENED_NEWS_KEY);
-    if (stored) {
-      try {
-        const parsed = JSON.parse(stored);
-        setListenedNews(new Set(parsed));
-      } catch {
-        setListenedNews(new Set());
-      }
-    }
-  }, []);
 
   // Save listened news to localStorage
   const markAsListened = useCallback((newsId: number) => {
@@ -108,8 +99,8 @@ export default function ListenAllPlayer({ news, lang }: ListenAllPlayerProps) {
   // Fetch summary for a news item
   const fetchSummary = useCallback(async (newsId: number): Promise<string | null> => {
     // Check cache first
-    if (summaries.has(newsId)) {
-      return summaries.get(newsId) || null;
+    if (summariesRef.current.has(newsId)) {
+      return summariesRef.current.get(newsId) || null;
     }
 
     if (!session) {
@@ -126,7 +117,7 @@ export default function ListenAllPlayer({ news, lang }: ListenAllPlayerProps) {
       if (response.ok) {
         const data = await response.json();
         if (data.summary) {
-          setSummaries(prev => new Map(prev).set(newsId, data.summary));
+          summariesRef.current.set(newsId, data.summary);
           return data.summary;
         }
       }
@@ -134,21 +125,21 @@ export default function ListenAllPlayer({ news, lang }: ListenAllPlayerProps) {
       console.error('Failed to fetch summary');
     }
     return null;
-  }, [session, lang, summaries]);
+  }, [session, lang]);
 
-  // Play next item in playlist
-  const playNext = useCallback(async () => {
+  const playAtIndex = useCallback(async (index: number) => {
     if (!isPlayingRef.current) return;
 
-    const playlist = playlistRef.current;
-    if (currentIndex >= playlist.length) {
+    const currentPlaylist = playlistRef.current;
+    if (index >= currentPlaylist.length) {
       // Finished all items
       setIsPlaying(false);
       isPlayingRef.current = false;
+      setPlaylist([]);
       return;
     }
 
-    const currentItem = playlist[currentIndex];
+    const currentItem = currentPlaylist[index];
     setIsLoadingSummary(true);
     setError(null);
 
@@ -164,29 +155,20 @@ export default function ListenAllPlayer({ news, lang }: ListenAllPlayerProps) {
 
     // Speak the text
     speak(textToSpeak);
-  }, [currentIndex, fetchSummary, getDisplayTitle, markAsListened, speak]);
+  }, [fetchSummary, getDisplayTitle, markAsListened, speak]);
 
   // Monitor when speech ends to play next
   useEffect(() => {
     if (!isSpeaking && isPlaying && !isLoadingSummary) {
       // Speech ended, move to next
       const timeout = setTimeout(() => {
-        setCurrentIndex(prev => prev + 1);
+        const nextIndex = currentIndex + 1;
+        setCurrentIndex(nextIndex);
+        void playAtIndex(nextIndex);
       }, 1000); // 1 second pause between items
       return () => clearTimeout(timeout);
     }
-  }, [isSpeaking, isPlaying, isLoadingSummary]);
-
-  // Play when index changes
-  useEffect(() => {
-    if (isPlaying && currentIndex < playlistRef.current.length) {
-      playNext();
-    } else if (currentIndex >= playlistRef.current.length && isPlaying) {
-      // Finished
-      setIsPlaying(false);
-      isPlayingRef.current = false;
-    }
-  }, [currentIndex, isPlaying, playNext]);
+  }, [currentIndex, isSpeaking, isPlaying, isLoadingSummary, playAtIndex]);
 
   // Start playing
   const handlePlay = useCallback(() => {
@@ -207,40 +189,45 @@ export default function ListenAllPlayer({ news, lang }: ListenAllPlayerProps) {
     }
 
     playlistRef.current = playlist;
+    setPlaylist(playlist);
     isPlayingRef.current = true;
     setCurrentIndex(0);
     setIsPlaying(true);
     setError(null);
-  }, [session, news, playMode, listenedNews]);
+    void playAtIndex(0);
+  }, [session, news, playMode, listenedNews, playAtIndex]);
 
   // Stop playing
   const handleStop = useCallback(() => {
     stop();
     setIsPlaying(false);
     isPlayingRef.current = false;
+    setPlaylist([]);
     setCurrentIndex(0);
   }, [stop]);
 
   // Skip to next
   const handleSkip = useCallback(() => {
     stop();
-    setCurrentIndex(prev => prev + 1);
-  }, [stop]);
+    const nextIndex = currentIndex + 1;
+    setCurrentIndex(nextIndex);
+    void playAtIndex(nextIndex);
+  }, [currentIndex, playAtIndex, stop]);
 
   // Skip to previous
   const handlePrevious = useCallback(() => {
     stop();
-    setCurrentIndex(prev => Math.max(0, prev - 1));
-  }, [stop]);
+    const prevIndex = Math.max(0, currentIndex - 1);
+    setCurrentIndex(prevIndex);
+    void playAtIndex(prevIndex);
+  }, [currentIndex, playAtIndex, stop]);
 
   // Calculate progress
-  const playlist = playlistRef.current;
   const progress = playlist.length > 0 ? ((currentIndex) / playlist.length) * 100 : 0;
   const unlistenedCount = news.filter(item => !listenedNews.has(item.id)).length;
   const listenedCount = news.length - unlistenedCount;
 
-  // Don't render until mounted (avoids hydration mismatch) or if TTS not supported
-  if (!mounted || !ttsSupported) {
+  if (!ttsSupported) {
     return null;
   }
 

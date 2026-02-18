@@ -18,7 +18,7 @@ interface UserComment {
 }
 
 export default function CommentsPage() {
-  const { data: session, status } = useSession();
+  const { status } = useSession();
   const router = useRouter();
   const { isDark } = useTheme();
   const { lang } = useLanguage();

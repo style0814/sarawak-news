@@ -1,6 +1,6 @@
 'use client';
 
-import { Language, translations } from '@/lib/i18n';
+import { Language } from '@/lib/i18n';
 import { useTheme } from './ThemeProvider';
 
 const CATEGORY_LABELS: Record<string, Record<string, string>> = {

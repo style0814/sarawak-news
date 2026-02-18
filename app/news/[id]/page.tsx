@@ -1,5 +1,5 @@
 import { Metadata } from 'next';
-import { getNewsById, incrementClicks, getNewsSummary } from '@/lib/db';
+import { getNewsById, getNewsSummary } from '@/lib/db';
 import NewsDetail from '@/components/NewsDetail';
 
 interface Props {
@@ -56,8 +56,7 @@ export default async function NewsDetailPage({ params }: Props) {
   const { id } = await params;
   const newsId = parseInt(id, 10);
 
-  // Fetch and increment clicks
-  const news = incrementClicks(newsId);
+  const news = getNewsById(newsId);
   const summary = news ? getNewsSummary(newsId) : null;
 
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://sarawaknews.my';

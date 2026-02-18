@@ -164,10 +164,7 @@ docs/
 | POST | /api/news/[id]/summary-view | Track summary views |
 | POST | /api/news/[id]/tts-listen | Track TTS listens |
 | GET | /api/search | Search with filters |
-| POST | /api/refresh | Fetch RSS feeds |
 | GET | /api/cron/refresh | Cron-triggered refresh (Bearer token) |
-| POST | /api/translate | Translate untranslated stored titles |
-| POST | /api/cleanup | Remove old articles |
 | GET | /api/comments?newsId=X | Get comments |
 | POST | /api/comments | Add comment |
 | POST | /api/comments/[id]/like | Like comment |
@@ -200,6 +197,9 @@ docs/
 
 | Method | Endpoint | Purpose |
 |--------|----------|---------|
+| POST | /api/refresh | Fetch RSS feeds (admin or cron secret, plus empty-DB bootstrap) |
+| POST | /api/translate | Translate untranslated stored titles (admin or cron secret) |
+| POST | /api/cleanup | Remove old articles (admin or cron secret) |
 | GET | /api/admin | Dashboard data (tab param) |
 | POST | /api/admin | Admin actions (action param) |
 | GET/POST/DELETE | /api/admin/auth | Admin login/logout/session |
@@ -246,6 +246,7 @@ GROQ_API_KEY=your-groq-api-key
 ADMIN_USERNAME=superadmin
 ADMIN_PASSWORD_HASH=bcrypt-hash
 ADMIN_SESSION_SECRET=random-string
+CRON_SECRET=random-string
 
 # Database path
 # Local: ./data/news.db

@@ -1,6 +1,6 @@
 import NextAuth from 'next-auth';
 import Credentials from 'next-auth/providers/credentials';
-import { verifyUser, getUserById } from './db';
+import { verifyUser, getUserById, consumeRateLimit } from './db';
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
   providers: [
@@ -10,9 +10,24 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         username: { label: 'Username or Email', type: 'text' },
         password: { label: 'Password', type: 'password' }
       },
-      async authorize(credentials) {
+      async authorize(credentials, request) {
         try {
           if (!credentials?.username || !credentials?.password) {
+            return null;
+          }
+
+          const ip = request?.headers?.get?.('x-forwarded-for')?.split(',')[0]?.trim()
+            || request?.headers?.get?.('x-real-ip')
+            || request?.headers?.get?.('cf-connecting-ip')
+            || 'unknown';
+          const identifier = String(credentials.username).toLowerCase();
+
+          const ipLimit = consumeRateLimit(`login-ip:${ip}`, 25, 15 * 60);
+          if (!ipLimit.allowed) {
+            return null;
+          }
+          const identifierLimit = consumeRateLimit(`login-id:${identifier}`, 10, 15 * 60);
+          if (!identifierLimit.allowed) {
             return null;
           }
 

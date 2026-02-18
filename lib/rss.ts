@@ -1,5 +1,5 @@
 import Parser from 'rss-parser';
-import { addNews, updateNewsTitles, getAllNews, getActiveRssFeeds, updateRssFeedStatus } from './db';
+import { addNews, updateNewsTitles, getUntranslatedNews, getActiveRssFeeds, updateRssFeedStatus } from './db';
 import { translateNewsTitle } from './translate';
 
 const parser = new Parser({
@@ -132,7 +132,7 @@ export async function fetchAllFeeds(): Promise<FetchResult> {
 
 // Translate untranslated news titles (run in background)
 export async function translateUntranslatedNews(): Promise<number> {
-  const { news } = getAllNews(1, 100); // Get first 100 untranslated
+  const news = getUntranslatedNews(100);
   let translated = 0;
 
   for (const item of news) {

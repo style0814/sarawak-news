@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
 import { useSession } from 'next-auth/react';
 
 interface Subscription {
@@ -29,7 +29,7 @@ export function PremiumProvider({ children }: { children: ReactNode }) {
   const [subscription, setSubscription] = useState<Subscription | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const fetchSubscription = async () => {
+  const fetchSubscription = useCallback(async () => {
     if (!session) {
       setSubscription(null);
       setLoading(false);
@@ -45,12 +45,12 @@ export function PremiumProvider({ children }: { children: ReactNode }) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [session]);
 
   useEffect(() => {
     if (status === 'loading') return;
     fetchSubscription();
-  }, [session, status]);
+  }, [status, fetchSubscription]);
 
   const isPremium = subscription?.plan === 'premium' && subscription?.status === 'active';
 

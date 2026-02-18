@@ -1,12 +1,29 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { saveFeedback, isUserBanned } from '@/lib/db';
+import { rateLimitByIp, rateLimitByKey } from '@/lib/rateLimit';
 
 export async function POST(request: NextRequest) {
   try {
+    const ipLimit = rateLimitByIp(request, 'feedback', 20, 60 * 60);
+    if (!ipLimit.allowed) {
+      return NextResponse.json(
+        { error: 'Too many feedback submissions. Please try again later.' },
+        { status: 429, headers: { 'Retry-After': String(ipLimit.retryAfter) } }
+      );
+    }
+
     const session = await auth();
     if (!session?.user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const userLimit = rateLimitByKey('feedback-user', session.user.id, 10, 60 * 60);
+    if (!userLimit.allowed) {
+      return NextResponse.json(
+        { error: 'Feedback limit reached. Please try again later.' },
+        { status: 429, headers: { 'Retry-After': String(userLimit.retryAfter) } }
+      );
     }
 
     // Check if user is banned

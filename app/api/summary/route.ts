@@ -3,6 +3,7 @@ import { auth } from '@/lib/auth';
 import { getNewsById, getNewsSummary, saveNewsSummary } from '@/lib/db';
 import { extractArticleContent, prepareForSummarization } from '@/lib/articleExtractor';
 import Groq from 'groq-sdk';
+import { rateLimitByIp, rateLimitByKey } from '@/lib/rateLimit';
 
 // Lazy-initialize Groq client (avoid build-time errors when env is missing)
 let groq: Groq | null = null;
@@ -16,12 +17,28 @@ function getGroq(): Groq {
 // Generate AI summary for a news article
 export async function POST(request: NextRequest) {
   try {
+    const ipLimit = rateLimitByIp(request, 'summary', 30, 60 * 60);
+    if (!ipLimit.allowed) {
+      return NextResponse.json(
+        { error: 'Too many summary requests. Please try again later.' },
+        { status: 429, headers: { 'Retry-After': String(ipLimit.retryAfter) } }
+      );
+    }
+
     // Check authentication (keeps rate limiting reasonable)
     const session = await auth();
     if (!session?.user?.id) {
       return NextResponse.json(
         { error: 'Please log in to use this feature' },
         { status: 401 }
+      );
+    }
+
+    const userLimit = rateLimitByKey('summary-user', session.user.id, 60, 60 * 60);
+    if (!userLimit.allowed) {
+      return NextResponse.json(
+        { error: 'Hourly summary limit reached. Please try again later.' },
+        { status: 429, headers: { 'Retry-After': String(userLimit.retryAfter) } }
       );
     }
 

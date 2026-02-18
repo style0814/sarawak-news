@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef } from 'react';
 import { useTheme } from './ThemeProvider';
 
 interface AdBannerProps {
@@ -18,30 +18,21 @@ export default function AdBanner({
   responsive = true
 }: AdBannerProps) {
   const { isDark } = useTheme();
-  const [mounted, setMounted] = useState(false);
-  const [adError, setAdError] = useState(false);
+  const hasAttemptedLoadRef = useRef(false);
 
   useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  useEffect(() => {
-    if (!mounted || !ADSENSE_PUB_ID || !slot) return;
+    if (!ADSENSE_PUB_ID || !slot || hasAttemptedLoadRef.current) return;
 
     try {
       // Push ad after component mounts
       ((window as Window & { adsbygoogle?: unknown[] }).adsbygoogle =
         (window as Window & { adsbygoogle?: unknown[] }).adsbygoogle || []).push({});
+      hasAttemptedLoadRef.current = true;
     } catch (error) {
       console.error('AdSense error:', error);
-      setAdError(true);
     }
-  }, [mounted, slot]);
+  }, [slot]);
 
-  // Don't render on server or if not configured
-  if (!mounted) return null;
-
-  // Show placeholder if AdSense not configured
   if (!ADSENSE_PUB_ID || !slot) {
     return (
       <div className={`w-full py-4 ${isDark ? 'bg-gray-800' : 'bg-gray-50'}`}>
@@ -62,9 +53,6 @@ export default function AdBanner({
       </div>
     );
   }
-
-  // Show nothing if ad failed to load
-  if (adError) return null;
 
   return (
     <div className={`w-full py-4 ${isDark ? 'bg-gray-800' : 'bg-gray-50'}`}>

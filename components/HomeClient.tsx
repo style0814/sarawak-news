@@ -61,7 +61,6 @@ export default function HomeClient({
   const [isSearching, setIsSearching] = useState(false);
   const [nextRefreshIn, setNextRefreshIn] = useState<number | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [lastRefreshTime, setLastRefreshTime] = useState<string | null>(initialLastRefresh);
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [categories, setCategories] = useState<readonly string[]>(initialCategories);
   const { isDark } = useTheme();
@@ -113,7 +112,6 @@ export default function HomeClient({
         if (refreshRes) {
           const refreshData = await refreshRes.json().catch(() => ({}));
           if (refreshData.refreshedAt) {
-            setLastRefreshTime(refreshData.refreshedAt);
             setNextRefreshIn(10 * 60);
           }
         }
@@ -125,7 +123,6 @@ export default function HomeClient({
         if (res) {
           const data = await res.json().catch(() => ({}));
           if (data.lastRefresh) {
-            setLastRefreshTime(data.lastRefresh);
             setNextRefreshIn(calcRemainingSeconds(data.lastRefresh));
           } else {
             setNextRefreshIn(10 * 60);
@@ -157,23 +154,29 @@ export default function HomeClient({
     const doRefresh = async () => {
       setIsRefreshing(true);
       try {
-        const res = await fetch('/api/refresh', { method: 'POST' }).catch(() => null);
+        const res = await fetch(`/api/news?page=${pagination.page}&limit=20&category=${selectedCategory}`).catch(() => null);
         if (res) {
           const data = await res.json().catch(() => ({}));
-          if (data.refreshedAt) {
-            setLastRefreshTime(data.refreshedAt);
+          if (data.news) {
+            setNews(data.news);
+            setPagination(data.pagination);
+            setLastUpdated(new Date());
+          }
+          if (data.lastRefresh) {
+            const remaining = calcRemainingSeconds(data.lastRefresh);
+            setNextRefreshIn(remaining > 0 ? remaining : 60);
+            return;
           }
         }
-        await fetchNews(pagination.page, false, selectedCategory);
-        setNextRefreshIn(10 * 60); // Reset countdown
+        setNextRefreshIn(60);
       } catch {
-        setNextRefreshIn(10 * 60); // Reset even on error
+        setNextRefreshIn(60);
       } finally {
         setIsRefreshing(false);
       }
     };
     doRefresh();
-  }, [nextRefreshIn, fetchNews, pagination.page, selectedCategory]);
+  }, [nextRefreshIn, calcRemainingSeconds, pagination.page, selectedCategory]);
 
   // Re-fetch when category changes (client-side navigation)
   useEffect(() => {

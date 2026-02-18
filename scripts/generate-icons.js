@@ -15,6 +15,7 @@
  * 3. Download the generated icons
  * 4. Place them in public/icons/
  */
+/* eslint-disable @typescript-eslint/no-require-imports */
 
 const sharp = require('sharp');
 const fs = require('fs');
@@ -54,7 +55,7 @@ async function generateIcons() {
 try {
   require.resolve('sharp');
   generateIcons();
-} catch (e) {
+} catch {
   console.log(`
 ====================================
 PWA Icon Generator

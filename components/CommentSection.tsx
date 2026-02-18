@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useSession } from 'next-auth/react';
 import Link from 'next/link';
 import { Language, translations, getTimeAgo } from '@/lib/i18n';
@@ -117,11 +117,7 @@ export default function CommentSection({ newsId, lang }: CommentSectionProps) {
 
   const isLoggedIn = !!session?.user;
 
-  useEffect(() => {
-    fetchComments();
-  }, [newsId]);
-
-  const fetchComments = async () => {
+  const fetchComments = useCallback(async () => {
     try {
       const response = await fetch(`/api/comments?newsId=${newsId}`);
       const data = await response.json();
@@ -131,7 +127,11 @@ export default function CommentSection({ newsId, lang }: CommentSectionProps) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [newsId]);
+
+  useEffect(() => {
+    fetchComments();
+  }, [fetchComments]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
