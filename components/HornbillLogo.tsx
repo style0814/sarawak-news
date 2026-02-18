@@ -24,61 +24,57 @@ export default function HornbillLogo({ size = 'md', className = '' }: HornbillLo
       aria-label="Rhinoceros Hornbill"
       role="img"
     >
-      {/*
-        Rhinoceros Hornbill side profile facing right.
-        Key features: round head, massive curved bill, upturned casque,
-        stocky body, white tail with black band, red eye.
-      */}
-
-      {/* Casque — upturned horn sitting on top of bill base */}
+      {/* Rhinoceros Hornbill profile: prominent casque + oversized curved bill */}
+      {/* Body */}
       <path
-        d="M28 18 Q32 8 42 6 Q48 5 50 9 Q52 13 48 16 L36 19 Z"
+        d="M14 49 C11 43 13 35 19 31 C24 28 31 29 35 33 C38 36 40 41 39 46 C38 51 34 55 28 56 C22 57 17 54 14 49 Z"
         fill="currentColor"
       />
 
-      {/* Head — round */}
-      <circle cx="22" cy="24" r="11" fill="currentColor" />
-
-      {/* Upper bill — large, long, curving slightly down */}
+      {/* Tail block */}
       <path
-        d="M30 20 L50 16 Q56 15 58 18 Q60 21 56 23 L30 26 Z"
+        d="M12 46 C8 48 7 53 10 57 C13 61 18 61 21 57 C19 54 18 50 18 46 Z"
+        fill="currentColor"
+        opacity="0.85"
+      />
+
+      {/* Neck + head */}
+      <path
+        d="M28 34 C27 29 29 24 33 21 C37 18 43 18 47 21 C50 23 52 27 52 31 C52 35 50 39 46 41 C42 43 37 43 33 40 C31 39 29 37 28 34 Z"
         fill="currentColor"
       />
 
-      {/* Lower bill — shorter, narrower mandible */}
+      {/* Upper bill */}
       <path
-        d="M30 27 L48 26 Q52 26 52 28 Q52 30 48 30 L30 30 Z"
+        d="M46 24 C52 20 59 20 62 23 C63 25 62 27 60 29 C57 31 53 32 49 32 C47 32 46 31 45 29 C44 27 44 25 46 24 Z"
         fill="currentColor"
       />
 
-      {/* Bill seam line */}
-      <line x1="30" y1="26" x2="55" y2="22" stroke="white" strokeWidth="1" opacity="0.7" />
-
-      {/* Eye — red iris (male), black pupil */}
-      <circle cx="25" cy="22" r="3" fill="white" />
-      <circle cx="25" cy="22" r="2" fill="#dc2626" />
-      <circle cx="25.3" cy="21.7" r="0.9" fill="black" />
-
-      {/* Body — stocky, below head */}
+      {/* Lower bill */}
       <path
-        d="M14 34 Q8 38 7 46 Q6 52 10 56 L26 56 Q30 52 30 46 Q30 38 26 34 Z"
+        d="M45 31 C50 30 56 31 59 33 C61 34 61 36 59 37 C55 39 49 39 45 37 C44 36 44 32 45 31 Z"
+        fill="currentColor"
+        opacity="0.9"
+      />
+
+      {/* Casque (horn on top of bill base) */}
+      <path
+        d="M40 20 C43 13 51 10 57 12 C60 13 61 15 61 17 C60 19 57 20 53 20 C49 20 45 20 42 21 Z"
         fill="currentColor"
       />
 
-      {/* Wing line */}
-      <path
-        d="M11 42 Q18 39 27 42"
-        stroke="white" strokeWidth="0.8" opacity="0.25" strokeLinecap="round"
-      />
+      {/* Eye */}
+      <circle cx="42.5" cy="29.5" r="2.1" fill="white" />
+      <circle cx="42.5" cy="29.5" r="1.2" fill="#111827" />
 
-      {/* Tail feathers — white with black band */}
-      <rect x="10" y="55" width="5" height="8" rx="1.5" fill="white" stroke="currentColor" strokeWidth="0.7" />
-      <rect x="16" y="55" width="5" height="8" rx="1.5" fill="white" stroke="currentColor" strokeWidth="0.7" />
-      <rect x="22" y="55" width="5" height="8" rx="1.5" fill="white" stroke="currentColor" strokeWidth="0.7" />
-      {/* Black band across tail feathers */}
-      <rect x="10" y="59" width="5" height="2" rx="0.3" fill="currentColor" />
-      <rect x="16" y="59" width="5" height="2" rx="0.3" fill="currentColor" />
-      <rect x="22" y="59" width="5" height="2" rx="0.3" fill="currentColor" />
+      {/* Bill seam detail */}
+      <path
+        d="M46 30 C50 29 55 29 58 30"
+        stroke="white"
+        strokeWidth="1"
+        strokeLinecap="round"
+        opacity="0.45"
+      />
     </svg>
   );
 }
