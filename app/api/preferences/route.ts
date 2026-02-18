@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
-import { getUserPreferences, setUserLanguage, setUserTheme } from '@/lib/db';
+import { getUserById, getUserPreferences, setUserLanguage, setUserTheme } from '@/lib/db';
 
 // GET /api/preferences - Get current user's preferences
 export async function GET() {
@@ -12,6 +12,14 @@ export async function GET() {
     }
 
     const userId = parseInt(session.user.id, 10);
+    const user = getUserById(userId);
+    if (!user) {
+      return NextResponse.json(
+        { error: 'Session expired. Please log in again.' },
+        { status: 401 }
+      );
+    }
+
     const preferences = getUserPreferences(userId);
 
     // Return empty object if no preferences saved — don't return fake defaults
@@ -37,6 +45,14 @@ export async function POST(request: Request) {
     }
 
     const userId = parseInt(session.user.id, 10);
+    const user = getUserById(userId);
+    if (!user) {
+      return NextResponse.json(
+        { error: 'Session expired. Please log in again.' },
+        { status: 401 }
+      );
+    }
+
     const body = await request.json();
 
     // Validate and update language
