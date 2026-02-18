@@ -1,6 +1,9 @@
 import { getAllNews, getMetadata, NEWS_CATEGORIES } from '@/lib/db';
 import HomeClient from '@/components/HomeClient';
 
+// Always fetch fresh data on each request (not statically cached at build time)
+export const dynamic = 'force-dynamic';
+
 export default function Home() {
   const { news, total, totalPages } = getAllNews(1, 20);
   const lastRefresh = getMetadata('last_refresh');

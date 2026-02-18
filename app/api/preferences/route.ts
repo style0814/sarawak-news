@@ -14,12 +14,10 @@ export async function GET() {
     const userId = parseInt(session.user.id, 10);
     const preferences = getUserPreferences(userId);
 
-    // Return default preferences if none exist
+    // Return empty object if no preferences saved — don't return fake defaults
+    // that would override the user's localStorage values
     if (!preferences) {
-      return NextResponse.json({
-        language: 'en',
-        theme: 'light'
-      });
+      return NextResponse.json({});
     }
 
     return NextResponse.json(preferences);

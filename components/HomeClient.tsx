@@ -103,18 +103,11 @@ export default function HomeClient({
     }
   }, []);
 
-  // Initial load - if we have SSR data, just set up countdown; if empty DB, trigger refresh
+  // Initial load - always fetch fresh server timestamp for countdown
   useEffect(() => {
-    if (initialNews.length > 0) {
-      // We already have SSR data - just set up the countdown
-      if (initialLastRefresh) {
-        setNextRefreshIn(calcRemainingSeconds(initialLastRefresh));
-      } else {
-        setNextRefreshIn(10 * 60);
-      }
-    } else {
-      // Database was empty at SSR time - fetch RSS feeds
-      const init = async () => {
+    const init = async () => {
+      if (initialNews.length === 0) {
+        // Database was empty at SSR time - fetch RSS feeds first
         setLoading(true);
         const refreshRes = await fetch('/api/refresh', { method: 'POST' }).catch(() => null);
         if (refreshRes) {
@@ -126,9 +119,24 @@ export default function HomeClient({
         }
         await fetchNews(1, false, selectedCategory);
         setLoading(false);
-      };
-      init();
-    }
+      } else {
+        // Fetch fresh last_refresh timestamp from server (SSR value may be stale)
+        const res = await fetch('/api/news?page=1&limit=1').catch(() => null);
+        if (res) {
+          const data = await res.json().catch(() => ({}));
+          if (data.lastRefresh) {
+            setLastRefreshTime(data.lastRefresh);
+            setNextRefreshIn(calcRemainingSeconds(data.lastRefresh));
+          } else {
+            setNextRefreshIn(10 * 60);
+          }
+        } else {
+          // Fallback to SSR value if API fails
+          setNextRefreshIn(calcRemainingSeconds(initialLastRefresh));
+        }
+      }
+    };
+    init();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Countdown timer for next refresh
