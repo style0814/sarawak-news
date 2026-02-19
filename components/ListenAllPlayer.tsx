@@ -11,6 +11,7 @@ interface NewsItem {
   title: string;
   title_zh?: string | null;
   title_ms?: string | null;
+  source_name?: string | null;
 }
 
 interface ListenAllPlayerProps {
@@ -20,6 +21,42 @@ interface ListenAllPlayerProps {
 
 // Local storage key for tracking listened news
 const LISTENED_NEWS_KEY = 'sarawak_news_listened';
+
+const NARRATION_COPY = {
+  en: {
+    greetings: ['Good morning.', 'Good afternoon.', 'Good evening.'],
+    intro: (count: number, sourceCount: number) =>
+      `Welcome to your Sarawak news briefing. We have ${count} stories from ${sourceCount} trusted sources.`,
+    firstLead: 'First headline.',
+    transitions: ['Next update.', 'Moving on.', 'Another important story.'],
+    sourceLead: (source: string) => `Source: ${source}.`,
+    summaryLead: 'Key points.',
+    fallbackSummary: 'No AI summary is ready yet, so this headline is a watch item.',
+    closing: 'That wraps up this briefing. You can tap any article to read the full report.'
+  },
+  zh: {
+    greetings: ['早上好。', '下午好。', '晚上好。'],
+    intro: (count: number, sourceCount: number) =>
+      `欢迎收听砂拉越新闻简报。今天有 ${count} 条新闻，来自 ${sourceCount} 个可靠来源。`,
+    firstLead: '第一条新闻。',
+    transitions: ['下一条。', '继续。', '另一条重要新闻。'],
+    sourceLead: (source: string) => `来源：${source}。`,
+    summaryLead: '重点如下。',
+    fallbackSummary: 'AI 摘要暂未准备好，这条新闻建议稍后重点查看。',
+    closing: '本次简报到此结束。你可以点击任一新闻查看完整内容。'
+  },
+  ms: {
+    greetings: ['Selamat pagi.', 'Selamat petang.', 'Selamat malam.'],
+    intro: (count: number, sourceCount: number) =>
+      `Selamat datang ke ringkasan berita Sarawak. Kita ada ${count} berita daripada ${sourceCount} sumber yang dipercayai.`,
+    firstLead: 'Berita pertama.',
+    transitions: ['Seterusnya.', 'Kita teruskan.', 'Satu lagi berita penting.'],
+    sourceLead: (source: string) => `Sumber: ${source}.`,
+    summaryLead: 'Inti utama.',
+    fallbackSummary: 'Ringkasan AI belum siap, tetapi tajuk ini patut dipantau.',
+    closing: 'Itu sahaja untuk sesi ini. Anda boleh tekan mana-mana berita untuk bacaan penuh.'
+  }
+} as const;
 
 export default function ListenAllPlayer({ news, lang }: ListenAllPlayerProps) {
   const { data: session } = useSession();
@@ -47,6 +84,7 @@ export default function ListenAllPlayer({ news, lang }: ListenAllPlayerProps) {
   const playlistRef = useRef<NewsItem[]>([]);
   const isPlayingRef = useRef(false);
   const summariesRef = useRef<Map<number, string>>(new Map());
+  const transitionTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // TTS hook
   const {
@@ -57,6 +95,78 @@ export default function ListenAllPlayer({ news, lang }: ListenAllPlayerProps) {
     setLanguage: setTTSLang
   } = useSpeechSynthesis({ language: lang });
 
+  const clearTransitionTimer = useCallback(() => {
+    if (transitionTimerRef.current) {
+      clearTimeout(transitionTimerRef.current);
+      transitionTimerRef.current = null;
+    }
+  }, []);
+
+  const getGreetingByTime = useCallback(() => {
+    const hour = new Date().getHours();
+    if (hour < 12) return 0;
+    if (hour < 18) return 1;
+    return 2;
+  }, []);
+
+  const normalizeSummaryForSpeech = useCallback((summary: string) => {
+    const plainText = summary
+      .replace(/\[(.*?)\]\((.*?)\)/g, '$1')
+      .replace(/[#*_`>|-]/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+
+    const sentences = plainText.match(/[^.!?。！？]+[.!?。！？]?/g) || [plainText];
+    const shortVersion = sentences.slice(0, 3).join(' ').trim();
+    if (shortVersion.length <= 520) return shortVersion;
+    return `${shortVersion.slice(0, 520).trim()}...`;
+  }, []);
+
+  // Get display title based on language
+  const getDisplayTitle = useCallback((item: NewsItem) => {
+    return lang === 'zh' && item.title_zh ? item.title_zh :
+           lang === 'ms' && item.title_ms ? item.title_ms : item.title;
+  }, [lang]);
+
+  const buildNarrationScript = useCallback((params: {
+    item: NewsItem;
+    summary: string | null;
+    index: number;
+    total: number;
+    sourceCount: number;
+  }) => {
+    const { item, summary, index, total, sourceCount } = params;
+    const copy = NARRATION_COPY[lang] || NARRATION_COPY.en;
+    const parts: string[] = [];
+
+    if (index === 0) {
+      parts.push(copy.greetings[getGreetingByTime()]);
+      parts.push(copy.intro(total, sourceCount));
+      parts.push(copy.firstLead);
+    } else {
+      parts.push(copy.transitions[index % copy.transitions.length]);
+    }
+
+    parts.push(getDisplayTitle(item));
+
+    if (item.source_name) {
+      parts.push(copy.sourceLead(item.source_name));
+    }
+
+    if (summary) {
+      parts.push(copy.summaryLead);
+      parts.push(normalizeSummaryForSpeech(summary));
+    } else {
+      parts.push(copy.fallbackSummary);
+    }
+
+    if (index === total - 1) {
+      parts.push(copy.closing);
+    }
+
+    return parts.join(' ');
+  }, [getDisplayTitle, getGreetingByTime, lang, normalizeSummaryForSpeech]);
+
   // Sync TTS language and clear summary cache when language changes
   useEffect(() => {
     setTTSLang(lang);
@@ -64,6 +174,7 @@ export default function ListenAllPlayer({ news, lang }: ListenAllPlayerProps) {
     summariesRef.current.clear();
     // Stop playback if language changes mid-play
     if (isPlayingRef.current) {
+      clearTransitionTimer();
       stop();
       isPlayingRef.current = false;
       queueMicrotask(() => {
@@ -72,7 +183,11 @@ export default function ListenAllPlayer({ news, lang }: ListenAllPlayerProps) {
         setPlaylist([]);
       });
     }
-  }, [lang, setTTSLang, stop]);
+  }, [lang, setTTSLang, stop, clearTransitionTimer]);
+
+  useEffect(() => () => {
+    clearTransitionTimer();
+  }, [clearTransitionTimer]);
 
   // Save listened news to localStorage
   const markAsListened = useCallback((newsId: number) => {
@@ -89,12 +204,6 @@ export default function ListenAllPlayer({ news, lang }: ListenAllPlayerProps) {
     setListenedNews(new Set());
     localStorage.removeItem(LISTENED_NEWS_KEY);
   }, []);
-
-  // Get display title based on language
-  const getDisplayTitle = useCallback((item: NewsItem) => {
-    return lang === 'zh' && item.title_zh ? item.title_zh :
-           lang === 'ms' && item.title_ms ? item.title_ms : item.title;
-  }, [lang]);
 
   // Fetch summary for a news item
   const fetchSummary = useCallback(async (newsId: number): Promise<string | null> => {
@@ -127,12 +236,17 @@ export default function ListenAllPlayer({ news, lang }: ListenAllPlayerProps) {
     return null;
   }, [session, lang]);
 
-  const playAtIndex = useCallback(async (index: number) => {
+  const prefetchSummary = useCallback((newsId: number) => {
+    void fetchSummary(newsId);
+  }, [fetchSummary]);
+
+  const playAtIndex = useCallback(async function playFromIndex(index: number) {
     if (!isPlayingRef.current) return;
 
     const currentPlaylist = playlistRef.current;
     if (index >= currentPlaylist.length) {
       // Finished all items
+      clearTransitionTimer();
       setIsPlaying(false);
       isPlayingRef.current = false;
       setPlaylist([]);
@@ -147,28 +261,37 @@ export default function ListenAllPlayer({ news, lang }: ListenAllPlayerProps) {
     const summary = await fetchSummary(currentItem.id);
     setIsLoadingSummary(false);
 
-    // Text to speak
-    const textToSpeak = summary || getDisplayTitle(currentItem);
+    const nextItem = currentPlaylist[index + 1];
+    if (nextItem) {
+      prefetchSummary(nextItem.id);
+    }
+
+    const uniqueSources = new Set(
+      currentPlaylist.map(item => item.source_name).filter(Boolean)
+    );
+    const textToSpeak = buildNarrationScript({
+      item: currentItem,
+      summary,
+      index,
+      total: currentPlaylist.length,
+      sourceCount: Math.max(uniqueSources.size, 1)
+    });
 
     // Mark as listened
     markAsListened(currentItem.id);
 
-    // Speak the text
-    speak(textToSpeak);
-  }, [fetchSummary, getDisplayTitle, markAsListened, speak]);
-
-  // Monitor when speech ends to play next
-  useEffect(() => {
-    if (!isSpeaking && isPlaying && !isLoadingSummary) {
-      // Speech ended, move to next
-      const timeout = setTimeout(() => {
-        const nextIndex = currentIndex + 1;
+    speak(textToSpeak, {
+      onEnd: () => {
+        if (!isPlayingRef.current) return;
+        const nextIndex = index + 1;
         setCurrentIndex(nextIndex);
-        void playAtIndex(nextIndex);
-      }, 1000); // 1 second pause between items
-      return () => clearTimeout(timeout);
-    }
-  }, [currentIndex, isSpeaking, isPlaying, isLoadingSummary, playAtIndex]);
+        clearTransitionTimer();
+        transitionTimerRef.current = setTimeout(() => {
+          void playFromIndex(nextIndex);
+        }, 500);
+      }
+    });
+  }, [buildNarrationScript, clearTransitionTimer, fetchSummary, markAsListened, prefetchSummary, speak]);
 
   // Start playing
   const handlePlay = useCallback(() => {
@@ -188,39 +311,45 @@ export default function ListenAllPlayer({ news, lang }: ListenAllPlayerProps) {
       return;
     }
 
+    clearTransitionTimer();
     playlistRef.current = playlist;
     setPlaylist(playlist);
     isPlayingRef.current = true;
     setCurrentIndex(0);
     setIsPlaying(true);
     setError(null);
+    const prefetchTargets = playlist.slice(0, 2);
+    prefetchTargets.forEach(item => prefetchSummary(item.id));
     void playAtIndex(0);
-  }, [session, news, playMode, listenedNews, playAtIndex]);
+  }, [session, news, playMode, listenedNews, playAtIndex, clearTransitionTimer, prefetchSummary]);
 
   // Stop playing
   const handleStop = useCallback(() => {
+    clearTransitionTimer();
     stop();
     setIsPlaying(false);
     isPlayingRef.current = false;
     setPlaylist([]);
     setCurrentIndex(0);
-  }, [stop]);
+  }, [clearTransitionTimer, stop]);
 
   // Skip to next
   const handleSkip = useCallback(() => {
+    clearTransitionTimer();
     stop();
     const nextIndex = currentIndex + 1;
     setCurrentIndex(nextIndex);
     void playAtIndex(nextIndex);
-  }, [currentIndex, playAtIndex, stop]);
+  }, [clearTransitionTimer, currentIndex, playAtIndex, stop]);
 
   // Skip to previous
   const handlePrevious = useCallback(() => {
+    clearTransitionTimer();
     stop();
     const prevIndex = Math.max(0, currentIndex - 1);
     setCurrentIndex(prevIndex);
     void playAtIndex(prevIndex);
-  }, [currentIndex, playAtIndex, stop]);
+  }, [clearTransitionTimer, currentIndex, playAtIndex, stop]);
 
   // Calculate progress
   const progress = playlist.length > 0 ? ((currentIndex) / playlist.length) * 100 : 0;

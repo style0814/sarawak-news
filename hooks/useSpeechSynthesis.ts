@@ -13,7 +13,7 @@ interface UseSpeechSynthesisOptions {
 }
 
 interface UseSpeechSynthesisReturn {
-  speak: (text: string) => void;
+  speak: (text: string, options?: SpeakOptions) => void;
   stop: () => void;
   pause: () => void;
   resume: () => void;
@@ -26,6 +26,14 @@ interface UseSpeechSynthesisReturn {
   setLanguage: (lang: SupportedLanguage) => void;
   gender: VoiceGender;
   error: string | null;
+}
+
+interface SpeakOptions {
+  onStart?: () => void;
+  onEnd?: () => void;
+  onError?: (event: SpeechSynthesisErrorEvent) => void;
+  rate?: number;
+  pitch?: number;
 }
 
 // Language code mappings for voice selection
@@ -181,7 +189,7 @@ export function useSpeechSynthesis(options: UseSpeechSynthesisOptions = {}): Use
   }, [voices, language, gender]);
 
   // Speak text
-  const speak = useCallback((text: string) => {
+  const speak = useCallback((text: string, speakOptions?: SpeakOptions) => {
     if (!isSupported || !synthRef.current) {
       setError('Speech synthesis not supported in this browser');
       return;
@@ -204,19 +212,21 @@ export function useSpeechSynthesis(options: UseSpeechSynthesisOptions = {}): Use
     }
 
     // Set speech parameters
-    utterance.rate = options.rate || 0.9; // Slightly slower for news
-    utterance.pitch = gender === 'female' ? 1.1 : 0.9;
+    utterance.rate = speakOptions?.rate || options.rate || 0.9; // Slightly slower for news
+    utterance.pitch = speakOptions?.pitch || (gender === 'female' ? 1.1 : 0.9);
     utterance.volume = 1;
 
     // Event handlers
     utterance.onstart = () => {
       setIsPlaying(true);
       setIsPaused(false);
+      speakOptions?.onStart?.();
     };
 
     utterance.onend = () => {
       setIsPlaying(false);
       setIsPaused(false);
+      speakOptions?.onEnd?.();
     };
 
     utterance.onerror = (event) => {
@@ -226,6 +236,7 @@ export function useSpeechSynthesis(options: UseSpeechSynthesisOptions = {}): Use
       if (event.error !== 'canceled') {
         setError('Failed to play audio. Please try again.');
       }
+      speakOptions?.onError?.(event);
     };
 
     utterance.onpause = () => {
