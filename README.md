@@ -1,4 +1,7 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+## Sarawak News
+
+Sarawak-focused news aggregation platform built with Next.js and SQLite.
+Includes user auth, comments, bookmarks, admin dashboard, RSS ingestion, and AI summaries.
 
 ## Getting Started
 
@@ -19,6 +22,17 @@ Open [http://localhost:3000](http://localhost:3000) with your browser to see the
 You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+
+## Railway Persistence Checklist
+
+If deployed on Railway with SQLite, do these to prevent user data loss on redeploy:
+
+1. Create and attach a persistent volume to this service.
+2. Mount it at `/data`.
+3. Set `DATABASE_PATH=/data/news.db` in Railway service variables.
+4. Redeploy once and verify a test account still exists after another deploy.
+
+Without persistent volume + `DATABASE_PATH`, new users/comments/bookmarks can disappear after restart.
 
 ## Learn More
 
