@@ -188,6 +188,21 @@ function initializeDb(database: Database.Database) {
     defaultFeeds.forEach(feed => insertFeed.run(feed.name, feed.url, feed.is_sarawak_source));
   }
 
+  // Ensure recommended free feeds exist on upgrades (inactive by default for safer rollout).
+  const recommendedFeeds = [
+    { name: 'Malay Mail (All)', url: 'https://www.malaymail.com/feed/rss', is_sarawak_source: 0, is_active: 0 },
+    { name: 'Malay Mail (Malaysia)', url: 'https://www.malaymail.com/feed/rss/malaysia', is_sarawak_source: 0, is_active: 0 },
+    { name: 'Astro Awani (Latest)', url: 'https://rss.astroawani.com/rss/latest/public', is_sarawak_source: 0, is_active: 0 },
+    { name: 'Astro Awani (National)', url: 'https://rss.astroawani.com/rss/national/public', is_sarawak_source: 0, is_active: 0 }
+  ];
+  const insertRecommendedFeed = database.prepare(`
+    INSERT OR IGNORE INTO rss_feeds (name, url, is_sarawak_source, is_active)
+    VALUES (?, ?, ?, ?)
+  `);
+  recommendedFeeds.forEach(feed => {
+    insertRecommendedFeed.run(feed.name, feed.url, feed.is_sarawak_source, feed.is_active);
+  });
+
   // Migration: Add columns if they don't exist
   try { database.exec(`ALTER TABLE news ADD COLUMN title_zh TEXT`); } catch { /* exists */ }
   try { database.exec(`ALTER TABLE news ADD COLUMN title_ms TEXT`); } catch { /* exists */ }
