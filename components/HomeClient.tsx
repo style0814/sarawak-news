@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Header from '@/components/Header';
@@ -27,6 +27,30 @@ interface NewsData {
   summary_views?: number;
   tts_listens?: number;
   created_at: string;
+}
+
+type DistrictKey = 'all' | 'kuching' | 'sibu' | 'miri' | 'bintulu';
+
+const DISTRICT_FILTERS: { key: DistrictKey; label: string; keywords: string[] }[] = [
+  { key: 'all', label: 'All Districts', keywords: [] },
+  { key: 'kuching', label: 'Kuching', keywords: ['kuching', '古晋'] },
+  { key: 'sibu', label: 'Sibu', keywords: ['sibu', '诗巫'] },
+  { key: 'miri', label: 'Miri', keywords: ['miri', '美里'] },
+  { key: 'bintulu', label: 'Bintulu', keywords: ['bintulu', '民都鲁'] },
+];
+
+function isRecentNews(createdAt: string, withinHours: number): boolean {
+  const createdMs = new Date(createdAt).getTime();
+  if (Number.isNaN(createdMs)) return false;
+  return (Date.now() - createdMs) <= withinHours * 60 * 60 * 1000;
+}
+
+function matchesDistrict(item: NewsData, district: DistrictKey): boolean {
+  if (district === 'all') return true;
+  const rule = DISTRICT_FILTERS.find(d => d.key === district);
+  if (!rule) return true;
+  const text = `${item.title} ${item.title_zh || ''} ${item.title_ms || ''} ${item.source_name}`.toLowerCase();
+  return rule.keywords.some(keyword => text.includes(keyword.toLowerCase()));
 }
 
 interface PaginationData {
@@ -63,6 +87,8 @@ export default function HomeClient({
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [categories, setCategories] = useState<readonly string[]>(initialCategories);
+  const [selectedDistrict, setSelectedDistrict] = useState<DistrictKey>('all');
+  const [onlyLatest6h, setOnlyLatest6h] = useState(false);
   const { isDark } = useTheme();
   const { lang, setLanguage } = useLanguage();
   const t = translations[lang];
@@ -188,13 +214,6 @@ export default function HomeClient({
     doRefresh();
   }, [nextRefreshIn, calcRemainingSeconds, pagination.page, selectedCategory]);
 
-  // Re-fetch when category changes (client-side navigation)
-  useEffect(() => {
-    if (selectedCategory !== 'all') {
-      fetchNews(1, true, selectedCategory);
-    }
-  }, [selectedCategory, fetchNews]);
-
   // Format countdown
   const formatCountdown = (seconds: number | null) => {
     if (seconds === null) return '--:--';
@@ -214,6 +233,7 @@ export default function HomeClient({
     setSelectedCategory(category);
     setIsSearching(false);
     setSearchQuery('');
+    fetchNews(1, true, category);
   };
 
 
@@ -258,8 +278,18 @@ export default function HomeClient({
   const handleClearSearch = () => {
     setSearchQuery('');
     setIsSearching(false);
-    fetchNews(1, true);
+    fetchNews(1, true, selectedCategory);
   };
+
+  const visibleNews = useMemo(() => {
+    return news.filter(item => {
+      if (!matchesDistrict(item, selectedDistrict)) return false;
+      if (onlyLatest6h && !isRecentNews(item.created_at, 6)) return false;
+      return true;
+    });
+  }, [news, selectedDistrict, onlyLatest6h]);
+
+  const hasLocalFocusFilter = selectedDistrict !== 'all' || onlyLatest6h;
 
   return (
     <div className={`min-h-screen transition-colors ${isDark ? 'bg-gray-900' : 'bg-gradient-to-b from-orange-50 to-white'}`}>
@@ -321,20 +351,66 @@ export default function HomeClient({
           </div>
         )}
 
+        {/* Focus Filters */}
+        {!isSearching && (
+          <div className={`mb-4 p-4 rounded-xl shadow-sm ${isDark ? 'bg-gray-800' : 'bg-white'}`}>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <p className={`text-sm font-semibold ${isDark ? 'text-gray-200' : 'text-gray-700'}`}>District Focus</p>
+                <p className={`text-xs ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>Filter headlines by Sarawak area keywords</p>
+              </div>
+              <button
+                onClick={() => setOnlyLatest6h(prev => !prev)}
+                className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${
+                  onlyLatest6h
+                    ? 'bg-orange-600 text-white border-orange-600'
+                    : isDark
+                      ? 'border-gray-600 text-gray-300 hover:border-orange-500 hover:text-orange-300'
+                      : 'border-gray-300 text-gray-600 hover:border-orange-500 hover:text-orange-600'
+                }`}
+              >
+                {onlyLatest6h ? 'Showing last 6 hours' : 'Only new in last 6 hours'}
+              </button>
+            </div>
+            <div className="mt-3 flex flex-wrap gap-2">
+              {DISTRICT_FILTERS.map(district => (
+                <button
+                  key={district.key}
+                  onClick={() => setSelectedDistrict(district.key)}
+                  className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${
+                    selectedDistrict === district.key
+                      ? 'bg-orange-600 text-white border-orange-600'
+                      : isDark
+                        ? 'border-gray-600 text-gray-300 hover:border-orange-500 hover:text-orange-300'
+                        : 'border-gray-300 text-gray-600 hover:border-orange-500 hover:text-orange-600'
+                  }`}
+                >
+                  {district.label}
+                </button>
+              ))}
+            </div>
+            <p className={`mt-3 text-xs ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
+              Showing {visibleNews.length} of {news.length} articles on this page
+            </p>
+          </div>
+        )}
+
         <div className={`rounded-xl shadow-sm overflow-hidden ${isDark ? 'bg-gray-800' : 'bg-white'}`}>
           <NewsList
-            news={news}
+            news={visibleNews}
             lang={lang}
             loading={loading}
             onItemClick={handleItemClick}
             onDiscussClick={handleDiscussClick}
           />
-          <Pagination
-            currentPage={pagination.page}
-            totalPages={pagination.totalPages}
-            onPageChange={handlePageChange}
-            lang={lang}
-          />
+          {!hasLocalFocusFilter && (
+            <Pagination
+              currentPage={pagination.page}
+              totalPages={pagination.totalPages}
+              onPageChange={handlePageChange}
+              lang={lang}
+            />
+          )}
         </div>
       </main>
 
@@ -358,11 +434,13 @@ export default function HomeClient({
           <Link href="/privacy" className="hover:text-orange-600">Privacy</Link>
           <span>|</span>
           <Link href="/terms" className="hover:text-orange-600">Terms</Link>
+          <span>|</span>
+          <a href="mailto:hello@sarawaknews.my?subject=Suggest%20News%20Source" className="hover:text-orange-600">Suggest Source</a>
         </div>
       </footer>
 
       {/* Listen All News Player */}
-      <ListenAllPlayer news={news} lang={lang} />
+      <ListenAllPlayer news={visibleNews} lang={lang} />
     </div>
   );
 }
