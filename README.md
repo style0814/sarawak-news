@@ -34,6 +34,53 @@ If deployed on Railway with SQLite, do these to prevent user data loss on redepl
 
 Without persistent volume + `DATABASE_PATH`, new users/comments/bookmarks can disappear after restart.
 
+## Background RSS Refresh (No Visitors Needed)
+
+Client auto-refresh only runs when someone has the page open.  
+For true background ingestion, schedule this endpoint every 10 minutes:
+
+```bash
+GET /api/cron/refresh
+Authorization: Bearer <CRON_SECRET>
+```
+
+### Option A: GitHub Actions (included)
+
+This repo now includes `.github/workflows/rss-cron-refresh.yml` with a 10-minute schedule.
+
+Set repository secrets:
+
+1. `SITE_URL` (example: `https://your-domain.com`)
+2. `CRON_SECRET` (must match your app env var)
+
+### Option B: Railway Cron Service
+
+Create a separate Railway cron service with:
+
+- **Schedule:** `*/10 * * * *`
+- **Start command:**
+
+```bash
+curl --fail --silent --show-error -H "Authorization: Bearer $CRON_SECRET" "$SITE_URL/api/cron/refresh"
+```
+
+Set env vars on that cron service: `SITE_URL`, `CRON_SECRET`.
+
+### Option C: Vercel Cron
+
+Add `vercel.json`:
+
+```json
+{
+  "crons": [
+    { "path": "/api/cron/refresh", "schedule": "*/10 * * * *" }
+  ]
+}
+```
+
+Set `CRON_SECRET` in Vercel environment variables.  
+Vercel cron calls include `Authorization: Bearer <CRON_SECRET>` automatically when this env var is set.
+
 ## Learn More
 
 To learn more about Next.js, take a look at the following resources:

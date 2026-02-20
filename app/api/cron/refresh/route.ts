@@ -26,11 +26,17 @@ export async function GET(request: NextRequest) {
   try {
     // Fetch new articles
     const result = await fetchAllFeeds();
+    const errorCount = result.errors?.length || 0;
+    const refreshStatus = errorCount === 0 ? 'success' : (result.added > 0 ? 'warning' : 'error');
 
     // Record the refresh timestamp
     const refreshedAt = new Date().toISOString();
     setMetadata('last_cron_refresh', refreshedAt);
     setMetadata('last_refresh', refreshedAt);
+    setMetadata('last_refresh_status', refreshStatus);
+    setMetadata('last_refresh_added', String(result.added || 0));
+    setMetadata('last_refresh_total', String(result.total || 0));
+    setMetadata('last_refresh_error_count', String(errorCount));
 
     // Translate new articles in background (don't wait)
     translateUntranslatedNews().catch(console.error);

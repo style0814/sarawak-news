@@ -154,6 +154,16 @@ export default function HomeClient({
     const doRefresh = async () => {
       setIsRefreshing(true);
       try {
+        // First trigger RSS fetch (server throttles for safety), then reload list.
+        const refreshRes = await fetch('/api/refresh', { method: 'POST' }).catch(() => null);
+        let retryAfter = 60;
+        if (refreshRes) {
+          const refreshData = await refreshRes.json().catch(() => ({}));
+          if (typeof refreshData.retryAfter === 'number') {
+            retryAfter = Math.max(30, Math.min(10 * 60, refreshData.retryAfter));
+          }
+        }
+
         const res = await fetch(`/api/news?page=${pagination.page}&limit=20&category=${selectedCategory}`).catch(() => null);
         if (res) {
           const data = await res.json().catch(() => ({}));
@@ -168,7 +178,7 @@ export default function HomeClient({
             return;
           }
         }
-        setNextRefreshIn(60);
+        setNextRefreshIn(retryAfter);
       } catch {
         setNextRefreshIn(60);
       } finally {

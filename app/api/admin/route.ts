@@ -56,6 +56,37 @@ import {
   setMetadata
 } from '@/lib/db';
 
+const PUBLIC_REFRESH_INTERVAL_SECONDS = 10 * 60;
+
+function getRefreshMonitor() {
+  const lastRefresh = getMetadata('last_refresh');
+  const status = getMetadata('last_refresh_status') || 'unknown';
+  const added = parseInt(getMetadata('last_refresh_added') || '0', 10);
+  const total = parseInt(getMetadata('last_refresh_total') || '0', 10);
+  const errorCount = parseInt(getMetadata('last_refresh_error_count') || '0', 10);
+
+  let secondsUntilPublicEligible = 0;
+  let nextPublicEligibleAt: string | null = null;
+  if (lastRefresh) {
+    const lastRefreshMs = new Date(lastRefresh).getTime();
+    if (!Number.isNaN(lastRefreshMs)) {
+      const elapsed = Math.floor((Date.now() - lastRefreshMs) / 1000);
+      secondsUntilPublicEligible = Math.max(0, PUBLIC_REFRESH_INTERVAL_SECONDS - elapsed);
+      nextPublicEligibleAt = new Date(lastRefreshMs + (PUBLIC_REFRESH_INTERVAL_SECONDS * 1000)).toISOString();
+    }
+  }
+
+  return {
+    lastRefresh,
+    status,
+    added: Number.isNaN(added) ? 0 : added,
+    total: Number.isNaN(total) ? 0 : total,
+    errorCount: Number.isNaN(errorCount) ? 0 : errorCount,
+    secondsUntilPublicEligible,
+    nextPublicEligibleAt
+  };
+}
+
 // Get admin dashboard data
 export async function GET(request: NextRequest) {
   const isAuthenticated = await checkAdminSession();
@@ -76,6 +107,7 @@ export async function GET(request: NextRequest) {
     const categoryStats = getCategoryStats();
     const untranslatedCount = getUntranslatedCount();
     const feedHealth = getFeedHealthStatus();
+    const refreshMonitor = getRefreshMonitor();
 
     return NextResponse.json({
       stats,
@@ -84,7 +116,8 @@ export async function GET(request: NextRequest) {
       topSources,
       categoryStats,
       untranslatedCount,
-      feedHealth
+      feedHealth,
+      refreshMonitor
     });
   }
 

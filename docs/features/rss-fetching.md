@@ -230,20 +230,52 @@ To add a new news source:
 
 Many sites have `<link rel="alternate" type="application/rss+xml">` in their HTML head.
 
-## Automatic Refresh (Future Enhancement)
+## Automatic Refresh (Server-Side)
 
-Currently, refresh is manual (button click). For automatic updates:
+Refresh now supports both:
 
-```typescript
-// Option 1: Cron job (external)
-// Run every hour: curl -X POST https://yoursite.com/api/refresh
+1. **Client auto-refresh** (when a user has the site open)
+2. **Server-side cron refresh** (works even with zero visitors)
 
-// Option 2: Next.js revalidation
-export const revalidate = 3600; // Re-run every hour
+### Cron Endpoint
 
-// Option 3: Client-side interval
-useEffect(() => {
-  const interval = setInterval(fetchNews, 60000); // Every minute
-  return () => clearInterval(interval);
-}, []);
+Use:
+
+```bash
+GET /api/cron/refresh
+Authorization: Bearer <CRON_SECRET>
 ```
+
+### GitHub Actions Scheduler
+
+Included file: `.github/workflows/rss-cron-refresh.yml`
+
+- Schedule: every 10 minutes (`*/10 * * * *`)
+- Calls `/api/cron/refresh` with Bearer auth
+- Requires repository secrets:
+  - `SITE_URL` (e.g. `https://your-domain.com`)
+  - `CRON_SECRET` (same as app env)
+
+### Railway Scheduler Example
+
+Use a dedicated Railway cron service:
+
+```bash
+curl --fail --silent --show-error \
+  -H "Authorization: Bearer $CRON_SECRET" \
+  "$SITE_URL/api/cron/refresh"
+```
+
+### Vercel Scheduler Example
+
+Add `vercel.json`:
+
+```json
+{
+  "crons": [
+    { "path": "/api/cron/refresh", "schedule": "*/10 * * * *" }
+  ]
+}
+```
+
+Set `CRON_SECRET` in Vercel env vars so Vercel cron sends `Authorization: Bearer <CRON_SECRET>`.

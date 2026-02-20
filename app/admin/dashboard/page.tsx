@@ -135,6 +135,16 @@ interface RssFeed {
   created_at: string;
 }
 
+interface RefreshMonitor {
+  lastRefresh: string | null;
+  status: string;
+  added: number;
+  total: number;
+  errorCount: number;
+  secondsUntilPublicEligible: number;
+  nextPublicEligibleAt: string | null;
+}
+
 type Tab = 'dashboard' | 'analytics' | 'users' | 'news' | 'comments' | 'errors' | 'feeds' | 'payments' | 'audit';
 
 interface PaymentSubmission {
@@ -215,6 +225,8 @@ export default function AdminDashboard() {
   // RSS Refresh state
   const [rssRefreshing, setRssRefreshing] = useState(false);
   const [rssResult, setRssResult] = useState<{ added: number; total: number; errors: string[] } | null>(null);
+  const [refreshMonitor, setRefreshMonitor] = useState<RefreshMonitor | null>(null);
+  const [nextPublicEligibleIn, setNextPublicEligibleIn] = useState<number | null>(null);
 
   // Translation state
   const [untranslatedCount, setUntranslatedCount] = useState(0);
@@ -303,6 +315,7 @@ export default function AdminDashboard() {
       setCategoryStats(data.categoryStats || []);
       setUntranslatedCount(data.untranslatedCount || 0);
       setFeedHealth(data.feedHealth || null);
+      setRefreshMonitor(data.refreshMonitor || null);
     } catch {
       console.error('Failed to load dashboard');
     } finally {
@@ -504,10 +517,14 @@ export default function AdminDashboard() {
       const data = await response.json();
       if (response.ok) {
         setRssResult({ added: data.added, total: data.total, errors: data.errors || [] });
+        setNextPublicEligibleIn(10 * 60);
         // Refresh dashboard stats to show new news count
         fetchDashboard();
       } else {
         setRssResult({ added: 0, total: 0, errors: [data.error || 'Failed to refresh feeds'] });
+        if (typeof data.retryAfter === 'number') {
+          setNextPublicEligibleIn(Math.max(0, data.retryAfter));
+        }
       }
     } catch {
       setRssResult({ added: 0, total: 0, errors: ['Network error - failed to connect'] });
@@ -515,6 +532,25 @@ export default function AdminDashboard() {
       setRssRefreshing(false);
     }
   };
+
+  useEffect(() => {
+    if (!refreshMonitor) {
+      setNextPublicEligibleIn(null);
+      return;
+    }
+    setNextPublicEligibleIn(refreshMonitor.secondsUntilPublicEligible ?? 0);
+  }, [refreshMonitor]);
+
+  useEffect(() => {
+    if (nextPublicEligibleIn === null) return;
+    const interval = setInterval(() => {
+      setNextPublicEligibleIn(prev => {
+        if (prev === null || prev <= 0) return 0;
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [nextPublicEligibleIn !== null]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Retry translations
   const handleRetryTranslation = async () => {
@@ -952,6 +988,20 @@ export default function AdminDashboard() {
     fetchAuditLogs(1);
   };
 
+  const formatDuration = (seconds: number | null) => {
+    if (seconds === null) return '--:--';
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  const getRefreshStatusStyles = (status: string) => {
+    if (status === 'success') return 'bg-green-900/40 text-green-300 border-green-700/50';
+    if (status === 'warning') return 'bg-yellow-900/40 text-yellow-300 border-yellow-700/50';
+    if (status === 'error') return 'bg-red-900/40 text-red-300 border-red-700/50';
+    return 'bg-gray-800 text-gray-300 border-gray-700';
+  };
+
   if (!authChecked) {
     return (
       <div className="min-h-screen bg-gray-900 flex items-center justify-center">
@@ -1085,6 +1135,30 @@ export default function AdminDashboard() {
                     <div>
                       <h2 className="text-lg font-bold">{t.refreshRssFeeds || 'Refresh RSS Feeds'}</h2>
                       <p className="text-sm text-gray-400 mt-1">{t.refreshRssDescription || 'Manually fetch new articles from all RSS sources'}</p>
+                      <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                        <div className="rounded-lg border border-gray-700 bg-gray-900/50 px-3 py-2">
+                          <p className="text-[11px] uppercase tracking-wide text-gray-500">Last Refresh</p>
+                          <p className="text-sm text-gray-200 mt-1">
+                            {refreshMonitor?.lastRefresh ? new Date(refreshMonitor.lastRefresh).toLocaleString() : 'Never'}
+                          </p>
+                        </div>
+                        <div className="rounded-lg border border-gray-700 bg-gray-900/50 px-3 py-2">
+                          <p className="text-[11px] uppercase tracking-wide text-gray-500">Next Public Auto-Refresh</p>
+                          <p className="text-sm mt-1 text-gray-200">
+                            {nextPublicEligibleIn === null ? '--:--' : nextPublicEligibleIn > 0 ? `${formatDuration(nextPublicEligibleIn)} (${refreshMonitor?.nextPublicEligibleAt ? new Date(refreshMonitor.nextPublicEligibleAt).toLocaleTimeString() : 'pending'})` : 'Ready now'}
+                          </p>
+                        </div>
+                        <div className="rounded-lg border border-gray-700 bg-gray-900/50 px-3 py-2">
+                          <p className="text-[11px] uppercase tracking-wide text-gray-500">Last Result</p>
+                          <p className="text-sm text-gray-200 mt-1">
+                            Added {refreshMonitor?.added ?? 0} / Processed {refreshMonitor?.total ?? 0} / Errors {refreshMonitor?.errorCount ?? 0}
+                          </p>
+                        </div>
+                        <div className={`rounded-lg border px-3 py-2 ${getRefreshStatusStyles(refreshMonitor?.status || 'unknown')}`}>
+                          <p className="text-[11px] uppercase tracking-wide opacity-80">Status</p>
+                          <p className="text-sm mt-1 font-medium uppercase">{refreshMonitor?.status || 'unknown'}</p>
+                        </div>
+                      </div>
                     </div>
                     <button
                       onClick={handleRefreshRss}
