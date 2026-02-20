@@ -55,6 +55,13 @@ const CATEGORY_KEYWORDS: Record<string, string[]> = {
   tourism: ['tourism', 'tourist', 'hotel', 'travel', 'destination', 'visitor', 'attraction', 'heritage', 'beach', 'resort']
 };
 
+const DISTRICT_KEYWORDS: Record<string, string[]> = {
+  kuching: ['kuching', '古晋'],
+  sibu: ['sibu', '诗巫'],
+  miri: ['miri', '美里'],
+  bintulu: ['bintulu', '民都鲁']
+};
+
 function detectCategory(title: string, content?: string): string {
   const text = `${title} ${content || ''}`.toLowerCase();
 
@@ -70,6 +77,16 @@ function detectCategory(title: string, content?: string): string {
   }
 
   return bestCategory;
+}
+
+function detectDistrict(title: string, content?: string, sourceName?: string): string {
+  const text = `${title} ${content || ''} ${sourceName || ''}`.toLowerCase();
+  for (const [district, keywords] of Object.entries(DISTRICT_KEYWORDS)) {
+    if (keywords.some(keyword => text.includes(keyword.toLowerCase()))) {
+      return district;
+    }
+  }
+  return 'sarawak';
 }
 
 export interface FetchResult {
@@ -103,12 +120,14 @@ export async function fetchAllFeeds(): Promise<FetchResult> {
 
         if (isRelevant) {
           const category = detectCategory(item.title, item.contentSnippet);
+          const district = detectDistrict(item.title, item.contentSnippet, feed.name);
           const added = addNews({
             title: item.title,
             source_url: item.link,
             source_name: feed.name,
             published_at: item.pubDate || item.isoDate,
-            category
+            category,
+            district
           });
 
           if (added) {

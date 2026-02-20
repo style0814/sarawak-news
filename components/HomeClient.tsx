@@ -22,6 +22,7 @@ interface NewsData {
   title_ms?: string | null;
   source_url: string;
   source_name: string;
+  district?: string | null;
   clicks: number;
   comment_count: number;
   summary_views?: number;
@@ -47,6 +48,7 @@ function isRecentNews(createdAt: string, withinHours: number): boolean {
 
 function matchesDistrict(item: NewsData, district: DistrictKey): boolean {
   if (district === 'all') return true;
+  if (item.district && item.district.toLowerCase() === district) return true;
   const rule = DISTRICT_FILTERS.find(d => d.key === district);
   if (!rule) return true;
   const text = `${item.title} ${item.title_zh || ''} ${item.title_ms || ''} ${item.source_name}`.toLowerCase();

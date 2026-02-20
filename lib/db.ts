@@ -62,6 +62,7 @@ function initializeDb(database: Database.Database) {
       source_url TEXT UNIQUE NOT NULL,
       source_name TEXT NOT NULL,
       published_at TEXT,
+      district TEXT DEFAULT 'sarawak',
       clicks INTEGER DEFAULT 0,
       comment_count INTEGER DEFAULT 0,
       summary_views INTEGER DEFAULT 0,
@@ -217,6 +218,7 @@ function initializeDb(database: Database.Database) {
   try { database.exec(`ALTER TABLE comments ADD COLUMN moderation_note TEXT`); } catch { /* exists */ }
   try { database.exec(`ALTER TABLE news ADD COLUMN summary_views INTEGER DEFAULT 0`); } catch { /* exists */ }
   try { database.exec(`ALTER TABLE news ADD COLUMN tts_listens INTEGER DEFAULT 0`); } catch { /* exists */ }
+  try { database.exec(`ALTER TABLE news ADD COLUMN district TEXT DEFAULT 'sarawak'`); } catch { /* exists */ }
 
   // Subscriptions table
   database.exec(`
@@ -533,6 +535,7 @@ export interface NewsItem {
   source_url: string;
   source_name: string;
   published_at: string | null;
+  district: string | null;
   clicks: number;
   comment_count: number;
   summary_views: number;
@@ -619,12 +622,13 @@ export function addNews(news: {
   source_name: string;
   published_at?: string;
   category?: string;
+  district?: string;
 }): NewsItem | null {
   const db = getDb();
   try {
     const stmt = db.prepare(`
-      INSERT INTO news (title, title_zh, title_ms, source_url, source_name, published_at, category)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO news (title, title_zh, title_ms, source_url, source_name, published_at, category, district)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     `);
     const result = stmt.run(
       news.title,
@@ -633,7 +637,8 @@ export function addNews(news: {
       news.source_url,
       news.source_name,
       news.published_at || null,
-      news.category || 'general'
+      news.category || 'general',
+      news.district || 'sarawak'
     );
     return db.prepare('SELECT * FROM news WHERE id = ?').get(result.lastInsertRowid) as NewsItem;
   } catch (error: unknown) {

@@ -15,6 +15,7 @@ interface NewsItemProps {
   titleMs?: string | null;
   sourceUrl: string;
   sourceName: string;
+  district?: string | null;
   clicks: number;
   commentCount: number;
   summaryViews: number;
@@ -33,6 +34,7 @@ export default function NewsItem({
   titleMs,
   sourceUrl,
   sourceName,
+  district,
   clicks,
   commentCount,
   summaryViews,
@@ -75,6 +77,7 @@ export default function NewsItem({
   const t = translations[lang];
   const domain = getDomain(sourceUrl);
   const timeAgo = getTimeAgo(createdAt, lang);
+  const districtLabel = district ? district.charAt(0).toUpperCase() + district.slice(1) : null;
 
   // Get translated title based on language
   const displayTitle = lang === 'zh' && titleZh ? titleZh :
@@ -209,6 +212,15 @@ export default function NewsItem({
             <span className={isDark ? 'text-gray-500' : 'text-gray-400'}>
               {timeAgo}
             </span>
+
+            {/* District */}
+            {districtLabel && districtLabel !== 'Sarawak' && (
+              <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
+                isDark ? 'bg-orange-900/40 text-orange-300' : 'bg-orange-100 text-orange-700'
+              }`}>
+                {districtLabel}
+              </span>
+            )}
           </div>
 
           {/* Stats Bar */}

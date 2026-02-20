@@ -11,6 +11,7 @@ interface NewsData {
   title_ms?: string | null;
   source_url: string;
   source_name: string;
+  district?: string | null;
   clicks: number;
   comment_count: number;
   summary_views?: number;
@@ -66,6 +67,7 @@ export default function NewsList({ news, lang, loading, onItemClick, onDiscussCl
           titleMs={item.title_ms}
           sourceUrl={item.source_url}
           sourceName={item.source_name}
+          district={item.district}
           clicks={item.clicks}
           commentCount={item.comment_count || 0}
           summaryViews={item.summary_views || 0}
